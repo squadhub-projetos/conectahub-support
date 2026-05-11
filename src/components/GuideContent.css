@@ -1,0 +1,97 @@
+.guide-content {
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.75;
+}
+
+.guide-content h2 {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 36px 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  letter-spacing: -0.3px;
+}
+
+.guide-content h2:first-child {
+  margin-top: 0;
+}
+
+.guide-content h3 {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 28px 0 10px;
+}
+
+.guide-content p {
+  margin: 0 0 16px;
+}
+
+.guide-content ul,
+.guide-content ol {
+  margin: 0 0 16px;
+  padding-left: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.guide-content li {
+  line-height: 1.65;
+}
+
+.guide-content strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.guide-content code {
+  font-family: ui-monospace, Consolas, monospace;
+  font-size: 13px;
+  background: var(--bg-elevated);
+  color: var(--accent);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.guide-callout,
+.guide-content blockquote {
+  margin: 20px 0;
+  padding: 14px 18px;
+  background: rgba(14, 165, 198, 0.07);
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-secondary);
+  font-style: normal;
+}
+
+.guide-callout strong,
+.guide-content blockquote strong {
+  color: var(--accent);
+}
+
+/* img tags inside HTML content */
+.guide-content img {
+  max-width: 100%;
+  border-radius: var(--radius-sm);
+  margin: 12px 0;
+}
+
+/* links inside content */
+.guide-content a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.guide-content a:hover {
+  color: var(--accent-hover);
+}
+
+/* horizontal rule */
+.guide-content hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 28px 0;
+}
