@@ -4,6 +4,8 @@ import type { DbCategory, DbGuideWithCategory } from '../types/database'
 import CategoryCard from '../components/CategoryCard'
 import CategoryGuidesOverlay from '../components/CategoryGuidesOverlay'
 import SearchResultsOverlay from '../components/SearchResultsOverlay'
+import SupportRequestForm from '../components/SupportRequestForm'
+import SupportTicketForm from '../components/SupportTicketForm'
 import './SupportHome.css'
 
 export default function SupportHome() {
@@ -68,9 +70,10 @@ export default function SupportHome() {
       <div className="support-home">
         <section className="hero-section">
           <div className="hero-content">
+            <span className="hero-eyebrow">Central de Suporte</span>
             <h1 className="hero-title">Como podemos te ajudar?</h1>
             <p className="hero-subtitle">
-              Guias, tutoriais e materiais de apoio para você aproveitar ao máximo a plataforma.
+              Guias, tutoriais e materiais de apoio para você aproveitar ao máximo a plataforma ConectaHub.
             </p>
             <div className="search-wrap">
               <span className="search-icon">🔍</span>
@@ -105,10 +108,15 @@ export default function SupportHome() {
         ) : (
           <section className="categories-section">
             <div className="section-inner">
-              <h2 className="section-title">Categorias</h2>
+              <div className="section-header-row">
+                <h2 className="section-title">Navegue por categoria</h2>
+                {!loading && (
+                  <span className="section-count">{categories.length} categorias · {guides.length} guias</span>
+                )}
+              </div>
               {loading ? (
                 <div className="categories-grid">
-                  {Array.from({ length: 7 }).map((_, i) => (
+                  {Array.from({ length: 8 }).map((_, i) => (
                     <div key={i} className="skeleton-card" />
                   ))}
                 </div>
@@ -126,6 +134,9 @@ export default function SupportHome() {
             </div>
           </section>
         )}
+
+        <SupportRequestForm />
+        <SupportTicketForm />
       </div>
 
       {activeCategoryId && activeCategory && (

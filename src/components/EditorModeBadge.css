@@ -1,18 +1,15 @@
+/* ── Light mode (default) ── */
 .editor-mode-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
   padding: 8px 24px;
-  background: linear-gradient(90deg, #071827 0%, #0A3D5C 60%, #0090CC 100%);
-  color: rgba(255, 255, 255, 0.9);
+  background: linear-gradient(90deg, #E6F4FF 0%, #D6EEFF 60%, #C9F3FF 100%);
+  color: var(--accent-mid);
   font-size: 13px;
   flex-shrink: 0;
-}
-
-[data-theme="dark"] .editor-mode-banner {
-  background: linear-gradient(90deg, #07111f 0%, #0a1628 60%, #112845 100%);
-  border-bottom: 1px solid var(--accent);
+  border-bottom: 1px solid rgba(0, 154, 220, 0.25);
 }
 
 .editor-mode-left {
@@ -24,11 +21,13 @@
 .editor-mode-label {
   font-weight: 700;
   letter-spacing: 0.2px;
+  color: var(--accent-mid);
 }
 
 .editor-mode-hint {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--accent);
   font-size: 12px;
+  opacity: 0.85;
 }
 
 @media (max-width: 600px) {
@@ -38,19 +37,48 @@
 }
 
 .editor-mode-signout {
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 154, 220, 0.12);
+  border: 1px solid rgba(0, 154, 220, 0.3);
+  color: var(--accent-mid);
   font-size: 12px;
   font-weight: 500;
   padding: 4px 12px;
   border-radius: var(--radius-sm);
   cursor: pointer;
   flex-shrink: 0;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
 }
 
 .editor-mode-signout:hover {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--accent);
   color: #fff;
+  border-color: var(--accent);
+}
+
+/* ── Dark mode ── */
+[data-theme="dark"] .editor-mode-banner {
+  background: linear-gradient(90deg, #07111f 0%, #0a1628 60%, #112845 100%);
+  color: rgba(255, 255, 255, 0.9);
+  border-bottom: 1px solid var(--accent);
+}
+
+[data-theme="dark"] .editor-mode-label {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+[data-theme="dark"] .editor-mode-hint {
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 1;
+}
+
+[data-theme="dark"] .editor-mode-signout {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.2);
+  color: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .editor-mode-signout:hover {
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.4);
 }

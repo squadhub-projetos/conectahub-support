@@ -118,6 +118,54 @@ export interface UpdateGuideInput {
   published_at?: string | null
 }
 
+// ── Support Requests ──────────────────────────────────────────────────────────
+
+export interface SupportRequestInput {
+  name: string
+  email: string
+  topic: string
+  description?: string
+}
+
+export async function submitSupportRequest(input: SupportRequestInput): Promise<void> {
+  const { error } = await supabase
+    .from('support_requests')
+    .insert({
+      name: input.name,
+      email: input.email,
+      topic: input.topic,
+      description: input.description || null,
+    })
+  if (error) throw error
+}
+
+// ── Support Tickets ───────────────────────────────────────────────────────────
+
+export interface SupportTicketInput {
+  name: string
+  email: string
+  company?: string
+  subject: string
+  category: string
+  priority: string
+  description: string
+}
+
+export async function submitSupportTicket(input: SupportTicketInput): Promise<void> {
+  const { error } = await supabase
+    .from('support_tickets')
+    .insert({
+      name: input.name,
+      email: input.email,
+      company: input.company || null,
+      subject: input.subject,
+      category: input.category,
+      priority: input.priority,
+      description: input.description,
+    })
+  if (error) throw error
+}
+
 export async function updateGuide(id: string, input: UpdateGuideInput): Promise<DbGuide> {
   const { data, error } = await supabase
     .from('support_guides')

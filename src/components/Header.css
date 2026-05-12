@@ -3,16 +3,17 @@
   top: 0;
   z-index: 100;
   height: var(--header-height);
-  background: var(--bg-secondary);
+  background: var(--bg-card);
   border-bottom: 1px solid var(--border-color);
   backdrop-filter: blur(8px);
+  box-shadow: 0 1px 0 var(--border-color), 0 2px 8px rgba(0, 30, 60, 0.04);
 }
 
 .header-inner {
-  max-width: 1200px;
+  max-width: 1280px;
   margin: 0 auto;
   height: 100%;
-  padding: 0 24px;
+  padding: 0 32px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -21,7 +22,7 @@
 .header-logo {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   text-decoration: none;
   flex-shrink: 0;
 }
@@ -30,22 +31,60 @@
   text-decoration: none;
 }
 
-.logo-icon {
-  font-size: 22px;
-  color: var(--accent);
+/* Icon */
+.logo-icon-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: var(--accent);
+  border-radius: 10px;
+  flex-shrink: 0;
+  color: #fff;
+  transition: background 0.2s, transform 0.2s;
 }
 
-.logo-text {
-  font-size: 17px;
-  font-weight: 600;
+.header-logo:hover .logo-icon-wrap {
+  background: var(--accent-hover);
+  transform: scale(1.04);
+}
+
+.logo-icon-img {
+  width: 22px;
+  height: 22px;
+  filter: brightness(0) invert(1);
+  display: block;
+}
+
+/* Text block */
+.logo-text-block {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  gap: 1px;
+}
+
+.logo-brand {
+  font-size: 15px;
+  font-weight: 700;
   color: var(--text-primary);
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
-.logo-sub {
-  font-weight: 400;
-  color: var(--text-secondary);
-  margin-left: 4px;
+.logo-product {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-muted);
+  letter-spacing: 0.1px;
+}
+
+/* Divider between logo and product name on single line (optional) */
+.logo-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--border-color);
+  margin: 0 4px;
 }
 
 .header-actions {
