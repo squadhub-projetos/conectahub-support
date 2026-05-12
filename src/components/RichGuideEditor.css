@@ -1,0 +1,212 @@
+.rge-wrap {
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--bg-elevated);
+  transition: border-color 0.2s;
+}
+
+.rge-wrap:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* ── Toolbar ── */
+.rge-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rge-btn {
+  padding: 4px 9px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  line-height: 1.5;
+  transition: background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.rge-btn:hover:not(:disabled) {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.rge-btn.is-active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.rge-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.rge-sep {
+  width: 1px;
+  height: 20px;
+  background: var(--border-color);
+  margin: 0 4px;
+  flex-shrink: 0;
+}
+
+/* ── Link dialog ── */
+.rge-link-dialog {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.rge-link-input {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+  outline: none;
+}
+
+.rge-link-input:focus {
+  border-color: var(--accent);
+}
+
+.rge-link-ok {
+  padding: 5px 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rge-link-cancel {
+  padding: 5px 10px;
+  background: none;
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ── Upload error ── */
+.rge-upload-error {
+  padding: 8px 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border-bottom: 1px solid rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+  font-size: 12px;
+}
+
+/* ── Editor content area ── */
+.rge-editor {
+  min-height: 360px;
+  background: var(--bg-card);
+}
+
+.rge-editor .tiptap {
+  min-height: 360px;
+  padding: 20px 22px;
+  outline: none;
+  font-size: 14px;
+  line-height: 1.75;
+  color: var(--text-primary);
+}
+
+/* Typography inside editor */
+.rge-editor .tiptap h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 28px 0 10px;
+}
+
+.rge-editor .tiptap h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 22px 0 8px;
+}
+
+.rge-editor .tiptap p {
+  margin: 0 0 12px;
+}
+
+.rge-editor .tiptap ul,
+.rge-editor .tiptap ol {
+  padding-left: 22px;
+  margin: 0 0 12px;
+}
+
+.rge-editor .tiptap li {
+  margin-bottom: 4px;
+}
+
+.rge-editor .tiptap blockquote {
+  border-left: 3px solid var(--accent);
+  margin: 16px 0;
+  padding: 10px 16px;
+  background: var(--accent-soft);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.rge-editor .tiptap pre {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  font-size: 13px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.rge-editor .tiptap code {
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.rge-editor .tiptap a {
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.rge-editor .tiptap img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-md);
+  margin: 12px 0;
+  display: block;
+}
+
+.rge-editor .tiptap hr {
+  border: none;
+  border-top: 2px solid var(--border-color);
+  margin: 24px 0;
+}
+
+.rge-editor .tiptap p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  pointer-events: none;
+  float: left;
+  height: 0;
+}

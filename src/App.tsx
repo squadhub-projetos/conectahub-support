@@ -5,6 +5,8 @@ import SupportHome from './pages/SupportHome'
 import GuidePage from './pages/GuidePage'
 import EditorHome from './pages/EditorHome'
 import GuideEditor from './pages/GuideEditor'
+import AdminGuides from './pages/AdminGuides'
+import AdminGuideEdit from './pages/AdminGuideEdit'
 import './App.css'
 
 function PublicLayout() {
@@ -21,10 +23,17 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Navigate to="/suporte" replace />} />
+
         <Route element={<PublicLayout />}>
           <Route path="/suporte" element={<SupportHome />} />
           <Route path="/suporte/:slug" element={<GuidePage />} />
+          <Route path="/admin/guides" element={<AdminGuides />} />
         </Route>
+
+        {/* Edit page has its own standalone layout */}
+        <Route path="/admin/guides/:id/edit" element={<AdminGuideEdit />} />
+
+        {/* Legacy editor routes */}
         <Route
           path="/editor"
           element={<EditorLayout><EditorHome /></EditorLayout>}

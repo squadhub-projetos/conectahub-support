@@ -1,0 +1,56 @@
+.editor-mode-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 24px;
+  background: linear-gradient(90deg, #071827 0%, #0A3D5C 60%, #0090CC 100%);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .editor-mode-banner {
+  background: linear-gradient(90deg, #07111f 0%, #0a1628 60%, #112845 100%);
+  border-bottom: 1px solid var(--accent);
+}
+
+.editor-mode-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.editor-mode-label {
+  font-weight: 700;
+  letter-spacing: 0.2px;
+}
+
+.editor-mode-hint {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12px;
+}
+
+@media (max-width: 600px) {
+  .editor-mode-hint {
+    display: none;
+  }
+}
+
+.editor-mode-signout {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px;
+  font-weight: 500;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+
+.editor-mode-signout:hover {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}

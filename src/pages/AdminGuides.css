@@ -1,0 +1,19 @@
+.admin-section-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-section-header .section-title {
+  margin-bottom: 0;
+}
+
+.admin-guide-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  padding: 2px 10px;
+  border-radius: 20px;
+}

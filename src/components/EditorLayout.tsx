@@ -10,7 +10,7 @@ export default function EditorLayout({ children }: EditorLayoutProps) {
   const location = useLocation()
 
   return (
-    <div className="editor-shell">
+    <div className="editor-shell" data-theme="dark">
       <header className="editor-header">
         <div className="editor-header-inner">
           <Link to="/editor" className="editor-logo">

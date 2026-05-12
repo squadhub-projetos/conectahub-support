@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { fetchGuideBySlug, fetchRelatedGuides } from '../lib/queries'
 import type { DbGuideWithCategory } from '../types/database'
 import GuideContent from '../components/GuideContent'
+import { toYouTubeEmbedUrl } from '../utils/youtube'
 import './GuidePage.css'
 
 export default function GuidePage() {
@@ -104,7 +105,8 @@ export default function GuidePage() {
 
   if (!guide) return null
 
-  const hasVideo = guide.video_url != null
+  const videoEmbed = guide.video_url ? toYouTubeEmbedUrl(guide.video_url) ?? guide.video_url : null
+  const hasVideo = videoEmbed != null
   const tags = guide.tags ?? []
   const readTime = guide.estimated_read_minutes ?? 5
   const updatedAt = guide.updated_at ?? guide.published_at
@@ -153,10 +155,10 @@ export default function GuidePage() {
               )}
             </header>
 
-            {hasVideo && guide.video_url && (
+            {hasVideo && videoEmbed && (
               <div className="guide-video-block">
                 <iframe
-                  src={guide.video_url}
+                  src={videoEmbed}
                   title={`Vídeo: ${guide.title}`}
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                   allowFullScreen

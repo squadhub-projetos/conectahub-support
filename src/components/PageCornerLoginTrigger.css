@@ -1,0 +1,20 @@
+.corner-trigger {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-style: solid;
+  border-width: 0 28px 28px 0;
+  border-color: transparent var(--accent) transparent transparent;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  z-index: 200;
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+.corner-trigger:hover {
+  opacity: 1;
+}

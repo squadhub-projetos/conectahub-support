@@ -21,6 +21,7 @@ export interface DbGuide {
   content_html: string | null
   content_markdown: string | null
   content_json: unknown
+  metadata: Record<string, unknown> | null
   estimated_read_minutes: number | null
   published_at: string | null
   updated_at: string | null

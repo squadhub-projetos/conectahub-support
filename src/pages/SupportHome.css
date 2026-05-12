@@ -1,28 +1,43 @@
 .support-home {
-  min-height: calc(100vh - var(--header-height));
+  display: flex;
+  flex-direction: column;
 }
 
-/* Hero */
+@media (min-width: 769px) {
+  .support-home {
+    height: calc(100vh - var(--header-height));
+    overflow: hidden;
+  }
+}
+
+/* ── Hero ── */
 .hero-section {
   background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(14, 165, 198, 0.18) 0%, transparent 70%),
-    var(--bg-secondary);
-  padding: 72px 24px 64px;
+    radial-gradient(ellipse 90% 80% at 50% -5%, rgba(0, 168, 232, 0.18) 0%, rgba(0, 194, 214, 0.08) 45%, transparent 72%),
+    linear-gradient(180deg, #E8F4FC 0%, var(--bg-primary) 100%);
+  padding: 56px 24px 48px;
   text-align: center;
   border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+[data-theme="dark"] .hero-section {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(0, 194, 214, 0.16) 0%, transparent 70%),
+    var(--bg-secondary);
 }
 
 .hero-content {
-  max-width: 640px;
+  max-width: 600px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 14px;
 }
 
 .hero-title {
-  font-size: clamp(28px, 5vw, 44px);
+  font-size: clamp(26px, 4.5vw, 40px);
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: -0.8px;
@@ -30,17 +45,18 @@
 }
 
 .hero-subtitle {
-  font-size: 16px;
+  font-size: 15px;
   color: var(--text-secondary);
   margin: 0;
   line-height: 1.6;
 }
 
+/* ── Search bar ── */
 .search-wrap {
   position: relative;
   width: 100%;
   max-width: 520px;
-  margin-top: 8px;
+  margin-top: 6px;
 }
 
 .search-icon {
@@ -48,7 +64,7 @@
   left: 16px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 16px;
+  font-size: 15px;
   pointer-events: none;
 }
 
@@ -57,12 +73,13 @@
   height: 52px;
   padding: 0 44px 0 48px;
   background: var(--bg-card);
-  border: 1px solid var(--border-color);
+  border: 1.5px solid var(--border-color);
   border-radius: var(--radius-lg);
   color: var(--text-primary);
   font-size: 15px;
   outline: none;
   box-sizing: border-box;
+  box-shadow: var(--shadow-card);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -72,7 +89,7 @@
 
 .search-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  box-shadow: 0 0 0 3px var(--accent-soft), var(--shadow-card);
 }
 
 .search-clear {
@@ -93,132 +110,49 @@
   color: var(--text-secondary);
 }
 
-/* Shared section layout */
+/* ── Categories section ── */
+.categories-section {
+  flex: 1;
+  padding: 36px 0 40px;
+  overflow: auto;
+}
+
 .section-inner {
-  max-width: 1200px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 0 24px;
 }
 
 .section-title {
-  font-size: 18px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 20px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  letter-spacing: -0.2px;
-}
-
-/* Categories */
-.categories-section {
-  padding: 48px 0;
-  border-bottom: 1px solid var(--border-subtle);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--text-muted);
+  margin: 0 0 16px;
 }
 
 .categories-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(7, 1fr);
   gap: 12px;
 }
 
-@media (max-width: 960px) {
+@media (max-width: 900px) {
   .categories-grid {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(4, 1fr);
   }
 }
 
 @media (max-width: 520px) {
   .categories-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-/* Guides */
-.guides-section {
-  padding: 48px 0 80px;
-}
-
-.guides-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 20px;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.guides-header .section-title {
-  margin-bottom: 0;
-}
-
-.guides-count {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted);
-  background: var(--bg-elevated);
-  padding: 2px 10px;
-  border-radius: 20px;
-}
-
-.clear-filter-btn {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--accent);
-  background: none;
-  border: 1px solid var(--accent);
-  border-radius: var(--radius-sm);
-  padding: 6px 14px;
-  cursor: pointer;
-  transition: background 0.2s, color 0.2s;
-}
-
-.clear-filter-btn:hover {
-  background: var(--accent);
-  color: #fff;
-}
-
-.guides-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-}
-
-@media (max-width: 1024px) {
-  .guides-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
-
-@media (max-width: 640px) {
-  .guides-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.guides-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 64px 24px;
-  text-align: center;
-  color: var(--text-secondary);
-}
-
-.empty-icon {
-  font-size: 36px;
-}
-
-/* Loading skeletons */
-@keyframes shimmer {
-  0% { background-position: -400px 0; }
-  100% { background-position: 400px 0; }
-}
-
-.skeleton-card,
-.skeleton-guide-card {
+/* ── Loading skeleton ── */
+.skeleton-card {
+  aspect-ratio: 1;
   border-radius: var(--radius-md);
   background: linear-gradient(
     90deg,
@@ -230,21 +164,20 @@
   animation: shimmer 1.4s infinite linear;
 }
 
-.skeleton-card {
-  height: 72px;
+@keyframes shimmer {
+  0% { background-position: -400px 0; }
+  100% { background-position: 400px 0; }
 }
 
-.skeleton-guide-card {
-  height: 200px;
-}
-
-/* Error state */
+/* ── Error state ── */
 .data-error {
+  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 12px;
-  padding: 80px 24px;
+  padding: 60px 24px;
   text-align: center;
   color: var(--text-secondary);
   font-size: 15px;
@@ -252,4 +185,21 @@
 
 .data-error span {
   font-size: 32px;
+}
+
+.retry-btn {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--accent);
+  background: none;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  padding: 7px 16px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+.retry-btn:hover {
+  background: var(--accent);
+  color: #fff;
 }
