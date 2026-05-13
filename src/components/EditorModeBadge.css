@@ -5,7 +5,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 8px 24px;
-  background: linear-gradient(90deg, #E6F4FF 0%, #D6EEFF 60%, #C9F3FF 100%);
+  background: #E8F4FF;
   color: var(--accent-mid);
   font-size: 13px;
   flex-shrink: 0;
@@ -57,7 +57,7 @@
 
 /* ── Dark mode ── */
 [data-theme="dark"] .editor-mode-banner {
-  background: linear-gradient(90deg, #07111f 0%, #0a1628 60%, #112845 100%);
+  background: var(--bg-secondary);
   color: rgba(255, 255, 255, 0.9);
   border-bottom: 1px solid var(--accent);
 }

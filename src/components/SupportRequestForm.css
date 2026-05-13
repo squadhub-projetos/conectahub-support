@@ -1,7 +1,7 @@
 .srf-section {
   background: var(--bg-secondary);
   border-top: 1px solid var(--border-color);
-  padding: 56px 32px 72px;
+  padding: 40px 32px;
 }
 
 .srf-inner {
@@ -9,13 +9,33 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+}
+
+/* ── Toggle (accordion trigger) ── */
+.srf-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.srf-toggle:hover .srf-title {
+  color: var(--accent);
 }
 
 .srf-header {
   display: flex;
   align-items: flex-start;
   gap: 20px;
+  flex: 1;
+  min-width: 0;
 }
 
 .srf-icon {
@@ -31,6 +51,7 @@
   color: var(--text-primary);
   margin: 0 0 6px;
   letter-spacing: -0.3px;
+  transition: color 0.2s;
 }
 
 .srf-subtitle {
@@ -38,6 +59,35 @@
   color: var(--text-secondary);
   margin: 0;
   line-height: 1.6;
+}
+
+.srf-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.3s ease, color 0.2s;
+}
+
+.srf-chevron.open {
+  transform: rotate(180deg);
+}
+
+.srf-toggle:hover .srf-chevron {
+  color: var(--accent);
+}
+
+/* ── Accordion body ── */
+.srf-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease;
+}
+
+.srf-body.open {
+  max-height: 900px;
+}
+
+.srf-body-inner {
+  padding-top: 28px;
 }
 
 /* ── Form ── */

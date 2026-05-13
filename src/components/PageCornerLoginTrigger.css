@@ -2,19 +2,41 @@
   position: fixed;
   top: 0;
   right: 0;
-  width: 0;
-  height: 0;
-  border-style: solid;
-  border-width: 0 28px 28px 0;
-  border-color: transparent var(--accent) transparent transparent;
-  padding: 0;
+  width: 32px;
+  height: 32px;
   background: transparent;
+  border: none;
+  padding: 0;
   cursor: pointer;
   z-index: 200;
-  opacity: 0.3;
-  transition: opacity 0.2s;
+  opacity: 0;
+  transition: opacity 0.25s;
 }
 
 .corner-trigger:hover {
   opacity: 1;
+}
+
+/* The triangle corner — neutral by default */
+.corner-trigger::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  border-style: solid;
+  border-width: 0 32px 32px 0;
+  border-color: transparent #D7E6EF transparent transparent;
+  transition: border-color 0.25s;
+}
+
+.corner-trigger:hover::after {
+  border-color: transparent var(--accent) transparent transparent;
+}
+
+[data-theme="dark"] .corner-trigger::after {
+  border-color: transparent #1C2E44 transparent transparent;
+}
+
+[data-theme="dark"] .corner-trigger:hover::after {
+  border-color: transparent var(--accent) transparent transparent;
 }

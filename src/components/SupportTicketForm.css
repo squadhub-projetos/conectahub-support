@@ -1,18 +1,7 @@
 .stf-section {
   background: var(--bg-primary);
   border-top: 1px solid var(--border-color);
-  padding: 56px 32px 80px;
-  position: relative;
-}
-
-.stf-section::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: linear-gradient(90deg, var(--accent) 0%, var(--accent-teal) 100%);
+  padding: 40px 32px 56px;
 }
 
 .stf-inner {
@@ -20,13 +9,33 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 32px;
+}
+
+/* ── Toggle (accordion trigger) ── */
+.stf-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+}
+
+.stf-toggle:hover .stf-title {
+  color: var(--accent);
 }
 
 .stf-header {
   display: flex;
   align-items: flex-start;
   gap: 20px;
+  flex: 1;
+  min-width: 0;
 }
 
 .stf-icon {
@@ -42,6 +51,7 @@
   color: var(--text-primary);
   margin: 0 0 6px;
   letter-spacing: -0.3px;
+  transition: color 0.2s;
 }
 
 .stf-subtitle {
@@ -49,6 +59,35 @@
   color: var(--text-secondary);
   margin: 0;
   line-height: 1.6;
+}
+
+.stf-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.3s ease, color 0.2s;
+}
+
+.stf-chevron.open {
+  transform: rotate(180deg);
+}
+
+.stf-toggle:hover .stf-chevron {
+  color: var(--accent);
+}
+
+/* ── Accordion body ── */
+.stf-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.45s ease;
+}
+
+.stf-body.open {
+  max-height: 1300px;
+}
+
+.stf-body-inner {
+  padding-top: 28px;
 }
 
 /* ── Form ── */
