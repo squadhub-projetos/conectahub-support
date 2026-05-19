@@ -14,6 +14,12 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [isClosing, setIsClosing] = useState(false)
+
+  const handleClose = useCallback(() => {
+    setIsClosing(true)
+    setTimeout(() => onClose(), 210)
+  }, [onClose])
 
   const handleSubmit = useCallback(
     async (e: FormEvent<HTMLFormElement>) => {
@@ -45,23 +51,35 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
           return
         }
 
-        navigate('/admin/guides')
+        // Close modal with animation, then navigate
+        setPassword('')
+        setIsClosing(true)
+        setTimeout(() => {
+          onClose()
+          navigate('/admin/guides')
+        }, 210)
       } catch {
         setErrorMsg('Ocorreu um erro inesperado. Tente novamente.')
       } finally {
         setLoading(false)
       }
     },
-    [email, password, navigate]
+    [email, password, navigate, onClose]
   )
 
   return (
-    <div className="login-modal-backdrop" onClick={onClose}>
-      <div className="login-modal" onClick={(e) => e.stopPropagation()}>
+    <div
+      className={`login-modal-backdrop${isClosing ? ' is-closing' : ''}`}
+      onClick={handleClose}
+    >
+      <div
+        className={`login-modal${isClosing ? ' is-closing' : ''}`}
+        onClick={(e) => e.stopPropagation()}
+      >
         <button
           type="button"
           className="login-modal-close"
-          onClick={onClose}
+          onClick={handleClose}
           aria-label="Fechar"
         >
           <X size={18} />

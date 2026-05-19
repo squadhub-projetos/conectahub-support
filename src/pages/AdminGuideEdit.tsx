@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { fetchGuideById, fetchCategories, updateGuide } from '../lib/queries'
 import type { DbGuideWithCategory, DbCategory } from '../types/database'
-import { SUPPORT_GROUPS } from '../utils/subcategoryGrouping'
+import { getGroupsByCategory, DEFAULT_GROUPS, type SupportGroup } from '../data/supportGroups'
 import { toYouTubeEmbedUrl, isValidYouTubeUrl } from '../utils/youtube'
 import AdminRouteGuard from '../components/AdminRouteGuard'
 import RichGuideEditor from '../components/RichGuideEditor'
@@ -33,7 +33,8 @@ function AdminGuideEditInner() {
   const [fTitle, setFTitle] = useState('')
   const [fSlug, setFSlug] = useState('')
   const [fCategoryId, setFCategoryId] = useState('')
-  const [fSupportGroup, setFSupportGroup] = useState(SUPPORT_GROUPS[0].slug)
+  const [availableGroups, setAvailableGroups] = useState<SupportGroup[]>(DEFAULT_GROUPS)
+  const [fSupportGroup, setFSupportGroup] = useState(DEFAULT_GROUPS[0].slug)
   const [fExcerpt, setFExcerpt] = useState('')
   const [fStatus, setFStatus] = useState('draft')
   const [fTags, setFTags] = useState('')
@@ -60,8 +61,19 @@ function AdminGuideEditInner() {
         setFTitle(g.title)
         setFSlug(g.slug)
         setFCategoryId(g.category_id)
+
+        const cat = cats.find((c) => c.id === g.category_id)
+        const groups = getGroupsByCategory(cat?.slug)
+        setAvailableGroups(groups)
+
         const meta = g.metadata
-        setFSupportGroup((meta?.support_group as string) ?? SUPPORT_GROUPS[2].slug)
+        const savedGroup = meta?.support_group as string | undefined
+        if (savedGroup && groups.find((gr) => gr.slug === savedGroup)) {
+          setFSupportGroup(savedGroup)
+        } else {
+          setFSupportGroup(groups[0]?.slug ?? DEFAULT_GROUPS[0].slug)
+        }
+
         setFExcerpt(g.excerpt ?? '')
         setFStatus(g.status)
         setFTags((g.tags ?? []).join(', '))
@@ -85,6 +97,17 @@ function AdminGuideEditInner() {
 
   const markDirty = useCallback(() => setDirty(true), [])
 
+  function handleCategoryChange(newId: string) {
+    setFCategoryId(newId)
+    markDirty()
+    const cat = categories.find((c) => c.id === newId)
+    const groups = getGroupsByCategory(cat?.slug)
+    setAvailableGroups(groups)
+    if (!groups.find((g) => g.slug === fSupportGroup)) {
+      setFSupportGroup(groups[0]?.slug ?? '')
+    }
+  }
+
   function handleEditorChange(html: string, json: unknown) {
     setFContentHtml(html)
     setFContentJson(json)
@@ -102,7 +125,7 @@ function AdminGuideEditInner() {
       .map((t) => t.trim())
       .filter((t) => t.length > 0)
 
-    const groupLabel = SUPPORT_GROUPS.find((g) => g.slug === fSupportGroup)?.label ?? fSupportGroup
+    const groupLabel = availableGroups.find((g) => g.slug === fSupportGroup)?.label ?? fSupportGroup
     const videoUrlNorm = fVideoUrl.trim() || null
     const coverUrlNorm = fCoverUrl.trim() || null
     const readMin = parseInt(fReadMin, 10)
@@ -153,7 +176,7 @@ function AdminGuideEditInner() {
   const videoEmbedUrl = fVideoUrl.trim() ? toYouTubeEmbedUrl(fVideoUrl.trim()) : null
   const videoValid = fVideoUrl.trim() === '' || isValidYouTubeUrl(fVideoUrl.trim())
 
-  // ── Render states ─────────────────────────────────────────────────
+  // ── Render states ──────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -313,7 +336,7 @@ function AdminGuideEditInner() {
 
             <div className="age-form-group">
               <label className="age-label" htmlFor="f-category">Categoria</label>
-              <select id="f-category" className="age-select" value={fCategoryId} onChange={(e) => { setFCategoryId(e.target.value); markDirty() }}>
+              <select id="f-category" className="age-select" value={fCategoryId} onChange={(e) => handleCategoryChange(e.target.value)}>
                 {categories.map((cat) => (
                   <option key={cat.id} value={cat.id}>{cat.name}</option>
                 ))}
@@ -322,8 +345,14 @@ function AdminGuideEditInner() {
 
             <div className="age-form-group">
               <label className="age-label" htmlFor="f-group">Grupamento</label>
-              <select id="f-group" className="age-select" value={fSupportGroup} onChange={(e) => { setFSupportGroup(e.target.value); markDirty() }}>
-                {SUPPORT_GROUPS.map((g) => (
+              <select
+                id="f-group"
+                className="age-select"
+                value={fSupportGroup}
+                onChange={(e) => { setFSupportGroup(e.target.value); markDirty() }}
+                disabled={!fCategoryId}
+              >
+                {availableGroups.map((g) => (
                   <option key={g.slug} value={g.slug}>{g.label}</option>
                 ))}
               </select>

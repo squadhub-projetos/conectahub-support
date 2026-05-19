@@ -6,6 +6,7 @@ import {
   Calendar,
   Settings,
   BookOpen,
+  Megaphone,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -17,6 +18,7 @@ export const ICON_MAP: Record<string, LucideIcon> = {
   'calendar': Calendar,
   'settings': Settings,
   'book-open': BookOpen,
+  'megaphone': Megaphone,
 }
 
 interface CategoryIconProps {

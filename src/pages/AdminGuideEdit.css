@@ -6,6 +6,13 @@
   color: var(--text-primary);
 }
 
+@media (min-width: 901px) {
+  .age-page {
+    height: 100vh;
+    overflow: hidden;
+  }
+}
+
 /* ── Toolbar ── */
 .age-toolbar {
   display: flex;
@@ -136,13 +143,19 @@
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
-  padding: 28px 24px 48px;
-  align-items: start;
+  padding: 0 24px;
 }
 
 @media (max-width: 900px) {
   .age-body {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 901px) {
+  .age-body {
+    min-height: 0;
+    overflow: hidden;
   }
 }
 
@@ -174,6 +187,7 @@
   display: flex;
   flex-direction: column;
   gap: 20px;
+  padding: 28px 0 48px;
 }
 
 /* ── Sidebar ── */
@@ -181,8 +195,19 @@
   display: flex;
   flex-direction: column;
   gap: 16px;
-  position: sticky;
-  top: 78px;
+  padding: 28px 0 48px;
+}
+
+@media (min-width: 901px) {
+  .age-main {
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .age-sidebar {
+    overflow-y: auto;
+    min-height: 0;
+  }
 }
 
 /* ── Form elements ── */

@@ -1,7 +1,7 @@
 .rge-wrap {
   border: 1.5px solid var(--border-color);
   border-radius: var(--radius-md);
-  overflow: hidden;
+  overflow: clip; /* clip instead of hidden so sticky children work */
   background: var(--bg-card);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -21,6 +21,9 @@
   background: var(--bg-secondary);
   border-bottom: 1px solid var(--border-color);
   user-select: none;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 /* Style dropdown */

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { createGuide } from '../lib/queries'
 import type { DbCategory } from '../types/database'
-import { SUPPORT_GROUPS } from '../utils/subcategoryGrouping'
+import { getGroupsByCategory, type SupportGroup } from '../data/supportGroups'
 import './CreateGuideModal.css'
 
 interface CreateGuideModalProps {
@@ -26,11 +26,15 @@ function slugify(text: string): string {
 export default function CreateGuideModal({ categories, onClose }: CreateGuideModalProps) {
   const navigate = useNavigate()
 
+  const initialCatId = categories[0]?.id ?? ''
+  const initialGroups = getGroupsByCategory(categories[0]?.slug)
+
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
-  const [categoryId, setCategoryId] = useState(categories[0]?.id ?? '')
-  const [supportGroup, setSupportGroup] = useState(SUPPORT_GROUPS[0].slug)
+  const [categoryId, setCategoryId] = useState(initialCatId)
+  const [availableGroups, setAvailableGroups] = useState<SupportGroup[]>(initialGroups)
+  const [supportGroup, setSupportGroup] = useState(initialGroups[0]?.slug ?? '')
   const [excerpt, setExcerpt] = useState('')
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
 
@@ -48,6 +52,16 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
     setSlug(e.target.value)
   }
 
+  function handleCategoryChange(newId: string) {
+    setCategoryId(newId)
+    const cat = categories.find((c) => c.id === newId)
+    const groups = getGroupsByCategory(cat?.slug)
+    setAvailableGroups(groups)
+    if (!groups.find((g) => g.slug === supportGroup)) {
+      setSupportGroup(groups[0]?.slug ?? '')
+    }
+  }
+
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setErrorMsg(null)
@@ -56,7 +70,7 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
     if (!slug.trim()) { setErrorMsg('O slug é obrigatório.'); return }
     if (!categoryId) { setErrorMsg('Selecione uma categoria.'); return }
 
-    const groupLabel = SUPPORT_GROUPS.find((g) => g.slug === supportGroup)?.label ?? supportGroup
+    const groupLabel = availableGroups.find((g) => g.slug === supportGroup)?.label ?? supportGroup
 
     setLoading(true)
     try {
@@ -133,7 +147,7 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
               <select
                 className="cgm-select"
                 value={categoryId}
-                onChange={(e) => setCategoryId(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 disabled={loading}
                 required
               >
@@ -149,9 +163,9 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
                 className="cgm-select"
                 value={supportGroup}
                 onChange={(e) => setSupportGroup(e.target.value)}
-                disabled={loading}
+                disabled={loading || !categoryId}
               >
-                {SUPPORT_GROUPS.map((g) => (
+                {availableGroups.map((g) => (
                   <option key={g.slug} value={g.slug}>{g.label}</option>
                 ))}
               </select>

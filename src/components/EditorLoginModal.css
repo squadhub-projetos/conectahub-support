@@ -15,6 +15,15 @@
   to { opacity: 1; }
 }
 
+@keyframes lm-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+.login-modal-backdrop.is-closing {
+  animation: lm-fade-out 0.21s ease forwards;
+}
+
 .login-modal {
   position: relative;
   background: var(--bg-card);
@@ -30,6 +39,15 @@
 @keyframes lm-slide {
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes lm-slide-out {
+  from { transform: translateY(0) scale(1); opacity: 1; }
+  to { transform: translateY(8px) scale(0.97); opacity: 0; }
+}
+
+.login-modal.is-closing {
+  animation: lm-slide-out 0.2s ease forwards;
 }
 
 .login-modal-close {

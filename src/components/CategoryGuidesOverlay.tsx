@@ -46,7 +46,7 @@ export default function CategoryGuidesOverlay({
     )
   }, [guides, search])
 
-  const groups = useMemo(() => groupBySubcategory(filtered), [filtered])
+  const groups = useMemo(() => groupBySubcategory(filtered, category.slug), [filtered, category.slug])
 
   return (
     <div className="cgo-backdrop" onClick={onClose}>

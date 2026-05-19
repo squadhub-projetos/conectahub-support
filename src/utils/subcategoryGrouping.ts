@@ -1,4 +1,5 @@
 import type { DbGuideWithCategory } from '../types/database'
+import { getGroupsByCategory } from '../data/supportGroups'
 
 export type Subcategory =
   | 'Primeiros passos'
@@ -35,15 +36,7 @@ const SUBCATEGORY_PATTERNS: Array<{ sub: Subcategory; pattern: RegExp }> = [
   },
 ]
 
-const SUBCATEGORY_ORDER: Subcategory[] = [
-  'Primeiros passos',
-  'Configuração e ajustes',
-  'Rotina operacional',
-  'Recursos avançados',
-  'Solução de problemas',
-]
-
-export function classifyGuide(guide: DbGuideWithCategory): Subcategory {
+export function classifyGuide(guide: DbGuideWithCategory): string {
   const text = [guide.title, guide.excerpt ?? '', ...(guide.tags ?? [])].join(' ')
   for (const { sub, pattern } of SUBCATEGORY_PATTERNS) {
     if (pattern.test(text)) return sub
@@ -52,10 +45,11 @@ export function classifyGuide(guide: DbGuideWithCategory): Subcategory {
 }
 
 export interface SubcategoryGroup {
-  name: Subcategory
+  name: string
   guides: DbGuideWithCategory[]
 }
 
+// Kept for backward compatibility — prefer getGroupsByCategory() from data/supportGroups
 export const SUPPORT_GROUPS: Array<{ slug: string; label: string }> = [
   { slug: 'primeiros-passos', label: 'Primeiros passos' },
   { slug: 'configuracao-e-ajustes', label: 'Configuração e ajustes' },
@@ -64,15 +58,44 @@ export const SUPPORT_GROUPS: Array<{ slug: string; label: string }> = [
   { slug: 'solucao-de-problemas', label: 'Solução de problemas' },
 ]
 
-export function groupBySubcategory(guides: DbGuideWithCategory[]): SubcategoryGroup[] {
-  const map = new Map<Subcategory, DbGuideWithCategory[]>()
+export function groupBySubcategory(
+  guides: DbGuideWithCategory[],
+  categorySlug?: string
+): SubcategoryGroup[] {
+  const categoryGroups = getGroupsByCategory(categorySlug)
+  const map = new Map<string, DbGuideWithCategory[]>()
+
   for (const guide of guides) {
-    const sub = classifyGuide(guide)
-    if (!map.has(sub)) map.set(sub, [])
-    map.get(sub)!.push(guide)
+    const label =
+      (guide.metadata?.support_group_label as string | undefined) ||
+      (guide.metadata?.support_group as string | undefined) ||
+      classifyGuide(guide)
+    if (!map.has(label)) map.set(label, [])
+    map.get(label)!.push(guide)
   }
-  return SUBCATEGORY_ORDER.filter((sub) => map.has(sub)).map((sub) => ({
-    name: sub,
-    guides: map.get(sub)!,
-  }))
+
+  const result: SubcategoryGroup[] = []
+  const seen = new Set<string>()
+
+  // Add groups in category-defined order first
+  for (const group of categoryGroups) {
+    if (map.has(group.label)) {
+      result.push({ name: group.label, guides: map.get(group.label)! })
+      seen.add(group.label)
+    }
+    // Fallback: old data may have stored slug as the label
+    if (!seen.has(group.slug) && map.has(group.slug)) {
+      result.push({ name: group.label, guides: map.get(group.slug)! })
+      seen.add(group.slug)
+    }
+  }
+
+  // Any remaining groups not covered by the category order
+  for (const [name, gs] of map) {
+    if (!seen.has(name)) {
+      result.push({ name, guides: gs })
+    }
+  }
+
+  return result
 }

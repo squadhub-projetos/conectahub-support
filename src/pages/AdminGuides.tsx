@@ -8,6 +8,8 @@ import AdminRouteGuard from '../components/AdminRouteGuard'
 import EditorModeBadge from '../components/EditorModeBadge'
 import FloatingCreateGuideButton from '../components/FloatingCreateGuideButton'
 import CreateGuideModal from '../components/CreateGuideModal'
+import EditorSettingsButton from '../components/EditorSettingsButton'
+import EditorSettingsModal from '../components/EditorSettingsModal'
 import './SupportHome.css'
 import './AdminGuides.css'
 
@@ -21,6 +23,7 @@ export default function AdminGuides() {
   const [showSearch, setShowSearch] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showSettings, setShowSettings] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -151,6 +154,7 @@ export default function AdminGuides() {
         />
       )}
 
+      <EditorSettingsButton onClick={() => setShowSettings(true)} />
       <FloatingCreateGuideButton onClick={() => setShowCreateModal(true)} />
 
       {showCreateModal && (
@@ -158,6 +162,10 @@ export default function AdminGuides() {
           categories={categories}
           onClose={() => setShowCreateModal(false)}
         />
+      )}
+
+      {showSettings && (
+        <EditorSettingsModal onClose={() => setShowSettings(false)} />
       )}
     </AdminRouteGuard>
   )

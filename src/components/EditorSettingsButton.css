@@ -1,0 +1,36 @@
+.fab-settings {
+  position: fixed;
+  bottom: 96px;
+  right: 32px;
+  z-index: 200;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+  transition: color 0.2s, border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.fab-settings:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 4px 16px rgba(0, 154, 220, 0.2);
+  transform: translateY(-2px);
+}
+
+.fab-settings:active {
+  transform: translateY(0) scale(0.96);
+}
+
+@media (max-width: 600px) {
+  .fab-settings {
+    bottom: 84px;
+    right: 20px;
+  }
+}
