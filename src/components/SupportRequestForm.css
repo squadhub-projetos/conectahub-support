@@ -39,10 +39,15 @@
 }
 
 .srf-icon {
-  font-size: 36px;
-  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  color: var(--accent);
   flex-shrink: 0;
-  margin-top: 2px;
 }
 
 .srf-title {
@@ -198,7 +203,10 @@
 }
 
 .srf-success-icon {
-  font-size: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #16a34a;
 }
 
 .srf-success-title {

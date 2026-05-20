@@ -87,8 +87,8 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
 
         <div className="login-modal-header">
           <span className="login-modal-icon">✦</span>
-          <h2 className="login-modal-title">Acesso ao Editor</h2>
-          <p className="login-modal-sub">Área restrita a editores autorizados.</p>
+          <h2 className="login-modal-title">Acessar a Central</h2>
+          <p className="login-modal-sub">Entre com suas credenciais para continuar.</p>
         </div>
 
         <form className="login-modal-form" onSubmit={handleSubmit}>
@@ -124,6 +124,8 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
+
+        <p className="login-soon-note">Em breve, uma visualização personalizada para você!</p>
       </div>
     </div>
   )

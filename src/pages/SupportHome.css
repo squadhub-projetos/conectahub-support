@@ -6,14 +6,10 @@
 /* ── Hero ── */
 .hero-section {
   background: var(--bg-secondary);
-  padding: 64px 24px 56px;
+  padding: 64px 24px 60px;
   text-align: center;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-}
-
-[data-theme="dark"] .hero-section {
-  background: var(--bg-secondary);
 }
 
 .hero-content {
@@ -22,13 +18,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
+  gap: 18px;
 }
 
 .hero-eyebrow {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 1.2px;
+  letter-spacing: 1.4px;
   text-transform: uppercase;
   color: var(--accent);
   background: var(--accent-soft);
@@ -37,23 +33,24 @@
 }
 
 .hero-title {
-  font-size: clamp(30px, 5vw, 48px);
-  font-weight: 800;
+  font-size: clamp(28px, 5vw, 44px);
+  font-weight: 900;
   color: var(--text-primary);
   letter-spacing: -1px;
   margin: 0;
-  line-height: 1.15;
+  line-height: 1.12;
 }
 
 .hero-subtitle {
-  font-size: 16px;
+  font-size: 15px;
+  font-weight: 400;
   color: var(--text-secondary);
   margin: 0;
-  line-height: 1.65;
-  max-width: 520px;
+  line-height: 1.7;
+  max-width: 500px;
 }
 
-/* ── Search bar ── */
+/* ── Search bar — liquid glass ── */
 .search-wrap {
   position: relative;
   width: 100%;
@@ -61,37 +58,76 @@
   margin-top: 8px;
 }
 
-.search-icon {
+.search-icon-wrap {
   position: absolute;
   left: 18px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 16px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
   pointer-events: none;
+  z-index: 1;
 }
 
 .search-input {
   width: 100%;
   height: 56px;
-  padding: 0 48px 0 52px;
-  background: var(--bg-card);
-  border: 2px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  padding: 0 50px 0 52px;
+  background: rgba(255, 255, 255, 0.88);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border: 1.5px solid rgba(0, 0, 0, 0.08);
+  border-radius: 28px;
   color: var(--text-primary);
   font-size: 15px;
+  font-weight: 400;
   outline: none;
   box-sizing: border-box;
-  box-shadow: 0 4px 20px rgba(0, 154, 220, 0.08), var(--shadow-card);
+  box-shadow:
+    0 8px 32px rgba(0, 30, 60, 0.12),
+    0 2px 8px rgba(0, 30, 60, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
   transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .search-input::placeholder {
   color: var(--text-muted);
+  font-weight: 400;
 }
 
 .search-input:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px var(--accent-soft), 0 4px 20px rgba(0, 154, 220, 0.12);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    0 8px 32px rgba(0, 30, 60, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+[data-theme="dark"] .search-input {
+  background: rgba(11, 19, 32, 0.76);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .search-input::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .search-input:focus {
+  border-color: var(--accent);
+  box-shadow:
+    0 0 0 4px var(--accent-soft),
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .search-icon-wrap {
+  color: var(--text-muted);
 }
 
 .search-clear {
@@ -102,14 +138,17 @@
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 13px;
+  display: flex;
+  align-items: center;
   cursor: pointer;
-  padding: 4px;
-  transition: color 0.2s;
+  padding: 6px;
+  border-radius: 50%;
+  transition: color 0.2s, background 0.2s;
 }
 
 .search-clear:hover {
   color: var(--text-secondary);
+  background: var(--bg-elevated);
 }
 
 /* ── Categories section ── */
@@ -131,7 +170,7 @@
 }
 
 .section-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--text-primary);
   margin: 0;
@@ -143,41 +182,98 @@
   color: var(--text-muted);
 }
 
+/* ── Panel grid — unified block ── */
 .categories-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 0;
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow:
+    0 4px 24px rgba(0, 30, 60, 0.08),
+    0 1px 4px rgba(0, 30, 60, 0.04);
 }
 
-@media (max-width: 1100px) {
-  .categories-grid {
-    grid-template-columns: repeat(3, 1fr);
-  }
+[data-theme="dark"] .categories-grid {
+  box-shadow:
+    0 4px 24px rgba(0, 0, 0, 0.28),
+    0 1px 4px rgba(0, 0, 0, 0.18);
 }
 
-@media (max-width: 720px) {
+/* Remove right border from last column (col 4) */
+.categories-grid .category-card:nth-child(4n) {
+  border-right: none;
+}
+
+/* Remove bottom border from last row (items 5-8 in 4-col) */
+.categories-grid .category-card:nth-last-child(-n+4) {
+  border-bottom: none;
+}
+
+/* ── Responsive: 2 columns ── */
+@media (max-width: 719px) {
   .categories-grid {
     grid-template-columns: repeat(2, 1fr);
+    border-radius: 12px;
   }
+
+  /* Reset 4-col rules */
+  .categories-grid .category-card:nth-child(4n) {
+    border-right: 1px solid var(--border-color);
+  }
+  .categories-grid .category-card:nth-last-child(-n+4) {
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  /* 2-col: remove right from even, bottom from last 2 */
+  .categories-grid .category-card:nth-child(2n) {
+    border-right: none;
+  }
+  .categories-grid .category-card:nth-last-child(-n+2) {
+    border-bottom: none;
+  }
+
   .section-inner {
     padding: 0 16px;
   }
 }
 
+/* ── Responsive: 1 column ── */
 @media (max-width: 420px) {
   .categories-grid {
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
+    grid-template-columns: 1fr;
+    border-radius: 10px;
+  }
+
+  /* Reset 2-col rules */
+  .categories-grid .category-card:nth-child(2n) {
+    border-right: none;
+  }
+  .categories-grid .category-card:nth-last-child(-n+2) {
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  /* 1-col: no right border on any, only last has no bottom */
+  .categories-grid .category-card {
+    border-right: none;
+  }
+  .categories-grid .category-card:last-child {
+    border-bottom: none;
   }
 }
 
 /* ── Loading skeleton ── */
 .skeleton-card {
-  height: 130px;
-  border-radius: var(--radius-md);
+  height: 120px;
   background: var(--bg-elevated);
   animation: skeleton-pulse 1.4s ease-in-out infinite;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
+
+.skeleton-card:nth-child(4n) { border-right: none; }
+.skeleton-card:nth-last-child(-n+4) { border-bottom: none; }
 
 @keyframes skeleton-pulse {
   0%, 100% { opacity: 1; }

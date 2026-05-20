@@ -1,6 +1,7 @@
 .rge-wrap {
   border: 1.5px solid var(--border-color);
-  border-radius: var(--radius-md);
+  /* No top-radius: toolbar must sit flush against scroll container top when sticky */
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
   overflow: clip; /* clip instead of hidden so sticky children work */
   background: var(--bg-card);
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -24,6 +25,8 @@
   position: sticky;
   top: 0;
   z-index: 10;
+  /* Prevent bleeding of content above toolbar when sticky */
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.07);
 }
 
 /* Style dropdown */

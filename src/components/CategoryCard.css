@@ -1,55 +1,60 @@
+/* ── Panel cell — no individual border-radius, borders via container ── */
 .category-card {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0;
-  padding: 22px 20px 18px;
-  min-height: 148px;
+  gap: 10px;
+  padding: 22px 22px 20px;
+  min-height: 120px;
   background: var(--bg-card);
-  border: 1.5px solid var(--border-color);
-  border-radius: var(--radius-md);
+  border: none;
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 0;
   cursor: pointer;
   text-align: left;
   width: 100%;
   position: relative;
-  overflow: hidden;
-  transition: border-color 0.2s, box-shadow 0.2s, transform 0.18s;
+  transition: background 0.15s;
 }
 
-.category-card::before {
+/* Inset highlight ring on hover (above divider borders) */
+.category-card::after {
   content: '';
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--accent);
-  opacity: 0;
-  transition: opacity 0.2s;
+  inset: 0;
+  border: 2px solid transparent;
+  pointer-events: none;
+  transition: border-color 0.18s;
+  z-index: 1;
 }
 
 .category-card:hover {
-  border-color: var(--accent);
-  box-shadow: 0 6px 20px rgba(0, 154, 220, 0.12), 0 0 0 1px var(--accent);
-  transform: translateY(-2px);
+  background: var(--bg-card-hover);
 }
 
-.category-card:hover::before {
-  opacity: 1;
+.category-card:hover::after {
+  border-color: var(--accent);
+}
+
+/* ── Icon + title row ── */
+.category-card-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
 .category-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 44px;
-  height: 44px;
+  width: 36px;
+  height: 36px;
   background: var(--accent-soft);
-  border-radius: var(--radius-md);
+  border-radius: 8px;
   color: var(--accent);
   flex-shrink: 0;
-  margin-bottom: 12px;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.18s, color 0.18s;
 }
 
 .category-card:hover .category-icon {
@@ -58,34 +63,21 @@
 }
 
 .category-name {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 800;
   color: var(--text-primary);
-  line-height: 1.3;
-  letter-spacing: -0.1px;
-  margin-bottom: 6px;
+  line-height: 1.2;
+  letter-spacing: -0.3px;
 }
 
+/* ── Description ── */
 .category-desc {
   font-size: 12px;
-  color: var(--text-muted);
-  line-height: 1.55;
-  flex: 1;
+  font-weight: 400;
+  color: var(--text-secondary);
+  line-height: 1.6;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
-}
-
-.category-cta {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--accent);
-  margin-top: 10px;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.category-card:hover .category-cta {
-  opacity: 1;
 }

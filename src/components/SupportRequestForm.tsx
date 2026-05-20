@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { BookOpen, CheckCircle2 } from 'lucide-react'
 import { submitSupportRequest } from '../lib/queries'
 import './SupportRequestForm.css'
 
@@ -39,7 +40,9 @@ export default function SupportRequestForm() {
           aria-expanded={isOpen}
         >
           <div className="srf-header">
-            <span className="srf-icon">💬</span>
+            <span className="srf-icon">
+              <BookOpen size={22} strokeWidth={1.75} />
+            </span>
             <div>
               <h2 className="srf-title">Não encontrou o que precisava?</h2>
               <p className="srf-subtitle">Peça um novo guia ou tutorial para nossa equipe. Respondemos em até 2 dias úteis.</p>
@@ -65,7 +68,9 @@ export default function SupportRequestForm() {
           <div className="srf-body-inner">
             {success ? (
               <div className="srf-success">
-                <span className="srf-success-icon">✅</span>
+                <span className="srf-success-icon">
+                  <CheckCircle2 size={36} strokeWidth={1.5} />
+                </span>
                 <p className="srf-success-title">Solicitação enviada com sucesso!</p>
                 <p className="srf-success-hint">Nossa equipe vai analisar o pedido e criar o conteúdo em breve.</p>
                 <button type="button" className="srf-reset-btn" onClick={() => setSuccess(false)}>
@@ -95,7 +100,7 @@ export default function SupportRequestForm() {
                   <textarea id="srf-desc" className="srf-textarea" value={description} onChange={e => setDescription(e.target.value)} placeholder="Explique brevemente o que você gostaria de aprender ou qual dificuldade está enfrentando…" rows={3} />
                 </div>
 
-                {error && <p className="srf-error">⚠ {error}</p>}
+                {error && <p className="srf-error">{error}</p>}
 
                 <button type="submit" className="srf-submit" disabled={loading || !name.trim() || !email.trim() || !topic.trim()}>
                   {loading ? 'Enviando…' : 'Enviar solicitação'}

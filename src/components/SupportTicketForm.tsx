@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Headphones, CheckCircle2 } from 'lucide-react'
 import { submitSupportTicket } from '../lib/queries'
 import './SupportTicketForm.css'
 
@@ -70,7 +71,9 @@ export default function SupportTicketForm() {
           aria-expanded={isOpen}
         >
           <div className="stf-header">
-            <span className="stf-icon">🎧</span>
+            <span className="stf-icon">
+              <Headphones size={22} strokeWidth={1.75} />
+            </span>
             <div>
               <h2 className="stf-title">Precisa de ajuda da nossa equipe?</h2>
               <p className="stf-subtitle">
@@ -98,7 +101,9 @@ export default function SupportTicketForm() {
           <div className="stf-body-inner">
             {success ? (
               <div className="stf-success">
-                <span className="stf-success-icon">✅</span>
+                <span className="stf-success-icon">
+                  <CheckCircle2 size={36} strokeWidth={1.5} />
+                </span>
                 <p className="stf-success-title">Ticket aberto com sucesso!</p>
                 <p className="stf-success-hint">Nossa equipe vai analisar e entrar em contato em breve pelo e-mail informado.</p>
                 <button type="button" className="stf-reset-btn" onClick={() => setSuccess(false)}>
@@ -159,7 +164,7 @@ export default function SupportTicketForm() {
                   />
                 </div>
 
-                {error && <p className="stf-error">⚠ {error}</p>}
+                {error && <p className="stf-error">{error}</p>}
 
                 <div className="stf-footer">
                   <button type="submit" className="stf-submit" disabled={loading || !isValid}>

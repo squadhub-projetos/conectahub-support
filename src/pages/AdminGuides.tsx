@@ -1,11 +1,11 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Search, X as XIcon } from 'lucide-react'
 import { fetchCategories, fetchAllGuides } from '../lib/queries'
 import type { DbCategory, DbGuideWithCategory } from '../types/database'
 import CategoryCard from '../components/CategoryCard'
 import CategoryGuidesOverlay from '../components/CategoryGuidesOverlay'
 import SearchResultsOverlay from '../components/SearchResultsOverlay'
 import AdminRouteGuard from '../components/AdminRouteGuard'
-import EditorModeBadge from '../components/EditorModeBadge'
 import FloatingCreateGuideButton from '../components/FloatingCreateGuideButton'
 import CreateGuideModal from '../components/CreateGuideModal'
 import EditorSettingsButton from '../components/EditorSettingsButton'
@@ -74,8 +74,6 @@ export default function AdminGuides() {
 
   return (
     <AdminRouteGuard>
-      <EditorModeBadge />
-
       <div className="support-home">
         <section className="hero-section">
           <div className="hero-content">
@@ -84,7 +82,9 @@ export default function AdminGuides() {
               Clique em uma categoria para ver e editar os guias, ou crie um novo guia abaixo.
             </p>
             <div className="search-wrap">
-              <span className="search-icon">🔍</span>
+              <span className="search-icon-wrap">
+                <Search size={18} strokeWidth={2} />
+              </span>
               <input
                 type="text"
                 className="search-input"
@@ -93,7 +93,9 @@ export default function AdminGuides() {
                 onChange={handleSearchChange}
               />
               {search && (
-                <button type="button" className="search-clear" onClick={clearSearch}>✕</button>
+                <button type="button" className="search-clear" onClick={clearSearch} aria-label="Limpar busca">
+                  <XIcon size={15} />
+                </button>
               )}
             </div>
           </div>

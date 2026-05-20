@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { Search, X as XIcon } from 'lucide-react'
 import { fetchCategories, fetchGuides } from '../lib/queries'
 import type { DbCategory, DbGuideWithCategory } from '../types/database'
 import CategoryCard from '../components/CategoryCard'
@@ -76,7 +77,9 @@ export default function SupportHome() {
               Guias, tutoriais e materiais de apoio para você aproveitar ao máximo a plataforma ConectaHub.
             </p>
             <div className="search-wrap">
-              <span className="search-icon">🔍</span>
+              <span className="search-icon-wrap">
+                <Search size={18} strokeWidth={2} />
+              </span>
               <input
                 type="text"
                 className="search-input"
@@ -85,8 +88,8 @@ export default function SupportHome() {
                 onChange={handleSearchChange}
               />
               {search && (
-                <button type="button" className="search-clear" onClick={clearSearch}>
-                  ✕
+                <button type="button" className="search-clear" onClick={clearSearch} aria-label="Limpar busca">
+                  <XIcon size={15} />
                 </button>
               )}
             </div>
