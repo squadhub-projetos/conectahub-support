@@ -1,0 +1,8 @@
+.vturb-embed {
+  width: 100%;
+}
+
+/* VTurb creates its own aspect-ratio container via padding-bottom */
+.vturb-embed > div {
+  width: 100% !important;
+}

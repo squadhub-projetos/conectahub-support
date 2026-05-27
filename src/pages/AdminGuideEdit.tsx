@@ -3,10 +3,26 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { fetchGuideById, fetchCategories, updateGuide } from '../lib/queries'
 import type { DbGuideWithCategory, DbCategory } from '../types/database'
 import { getGroupsByCategory, DEFAULT_GROUPS, type SupportGroup } from '../data/supportGroups'
-import { toYouTubeEmbedUrl, isValidYouTubeUrl } from '../utils/youtube'
+import { normalizeVideoEmbed, type VideoProvider } from '../utils/videoEmbed'
 import AdminRouteGuard from '../components/AdminRouteGuard'
 import RichGuideEditor from '../components/RichGuideEditor'
 import './AdminGuideEdit.css'
+
+const VIDEO_PLACEHOLDERS: Record<string, string> = {
+  '': 'https://youtube.com/watch?v=... ou cole o código embed',
+  youtube: 'https://youtube.com/watch?v=VIDEO_ID',
+  loom: 'https://www.loom.com/share/VIDEO_ID',
+  vturb: '<div id="vid_...">\n...\n</div>\n<script src="https://scripts.converteai.net/..."></script>',
+  google_drive: 'https://drive.google.com/file/d/FILE_ID/view',
+}
+
+const VIDEO_HINTS: Record<string, string> = {
+  '': 'Cole uma URL do YouTube, Loom, Google Drive ou o código embed da VTurb.',
+  youtube: 'Aceita youtube.com/watch?v=..., youtu.be/..., youtube.com/embed/... ou youtube.com/shorts/...',
+  loom: 'Aceita loom.com/share/ID ou loom.com/embed/ID — garanta que o vídeo esteja liberado para qualquer pessoa com o link.',
+  vturb: 'Cole o código embed (iframe ou script) da VTurb. Adicione o domínio do site na aba de segurança da VTurb para o player carregar corretamente.',
+  google_drive: 'Aceita drive.google.com/file/d/ID/view — garanta que o arquivo esteja compartilhado com permissão de visualização.',
+}
 
 export default function AdminGuideEdit() {
   return (
@@ -39,6 +55,7 @@ function AdminGuideEditInner() {
   const [fStatus, setFStatus] = useState('draft')
   const [fTags, setFTags] = useState('')
   const [fVideoUrl, setFVideoUrl] = useState('')
+  const [fVideoProvider, setFVideoProvider] = useState('')
   const [fCoverUrl, setFCoverUrl] = useState('')
   const [fReadMin, setFReadMin] = useState('3')
   const [fContentHtml, setFContentHtml] = useState('')
@@ -77,7 +94,10 @@ function AdminGuideEditInner() {
         setFExcerpt(g.excerpt ?? '')
         setFStatus(g.status)
         setFTags((g.tags ?? []).join(', '))
-        setFVideoUrl(g.video_url ?? '')
+        const savedProvider = typeof g.metadata?.video_provider === 'string' ? g.metadata.video_provider : ''
+        const savedEmbedCode = typeof g.metadata?.video_embed_code === 'string' ? g.metadata.video_embed_code : undefined
+        setFVideoProvider(savedProvider)
+        setFVideoUrl(savedEmbedCode ?? g.video_url ?? '')
         setFCoverUrl(g.cover_image_url ?? '')
         setFReadMin(String(g.estimated_read_minutes ?? 3))
         setFContentHtml(g.content_html ?? '')
@@ -126,9 +146,28 @@ function AdminGuideEditInner() {
       .filter((t) => t.length > 0)
 
     const groupLabel = availableGroups.find((g) => g.slug === fSupportGroup)?.label ?? fSupportGroup
-    const videoUrlNorm = fVideoUrl.trim() || null
     const coverUrlNorm = fCoverUrl.trim() || null
     const readMin = parseInt(fReadMin, 10)
+
+    const videoInput = fVideoUrl.trim()
+    let videoUrlToSave: string | null = null
+    const videoMeta: Record<string, unknown> = {}
+    if (videoInput) {
+      const norm = normalizeVideoEmbed(
+        videoInput,
+        fVideoProvider ? (fVideoProvider as VideoProvider) : undefined,
+      )
+      videoMeta.video_provider = norm.provider
+      videoMeta.video_embed_type = norm.type
+      if (norm.embedUrl) videoMeta.video_embed_url = norm.embedUrl
+      if (norm.embedCode) videoMeta.video_embed_code = norm.embedCode
+      videoUrlToSave = norm.provider === 'vturb' && norm.type === 'script' ? null : videoInput
+    }
+    const baseMetadata = Object.fromEntries(
+      Object.entries(guide.metadata ?? {}).filter(
+        ([k]) => !['video_provider', 'video_embed_type', 'video_embed_url', 'video_embed_code'].includes(k),
+      ),
+    )
 
     try {
       await updateGuide(id, {
@@ -138,16 +177,17 @@ function AdminGuideEditInner() {
         excerpt: fExcerpt.trim() || null,
         status: fStatus,
         tags: tagsArray,
-        video_url: videoUrlNorm,
+        video_url: videoUrlToSave,
         cover_image_url: coverUrlNorm,
         estimated_read_minutes: Number.isFinite(readMin) && readMin > 0 ? readMin : null,
         content_html: fContentHtml || null,
         content_markdown: fContentMd || null,
         content_json: fContentJson ?? null,
         metadata: {
-          ...(guide.metadata ?? {}),
+          ...baseMetadata,
           support_group: fSupportGroup,
           support_group_label: groupLabel,
+          ...(videoInput ? videoMeta : {}),
         },
         ...(fStatus === 'published' && !guide.published_at
           ? { published_at: new Date().toISOString() }
@@ -173,8 +213,12 @@ function AdminGuideEditInner() {
     }
   }
 
-  const videoEmbedUrl = fVideoUrl.trim() ? toYouTubeEmbedUrl(fVideoUrl.trim()) : null
-  const videoValid = fVideoUrl.trim() === '' || isValidYouTubeUrl(fVideoUrl.trim())
+  const videoNormalized = fVideoUrl.trim()
+    ? normalizeVideoEmbed(fVideoUrl.trim(), fVideoProvider ? (fVideoProvider as VideoProvider) : undefined)
+    : null
+  const videoProviderLabel: Record<string, string> = {
+    youtube: 'YouTube', loom: 'Loom', vturb: 'VTurb', google_drive: 'Google Drive',
+  }
 
   // ── Render states ──────────────────────────────────────────────────
 
@@ -365,35 +409,67 @@ function AdminGuideEditInner() {
           </div>
 
           <div className="age-card">
-            <h3 className="age-card-heading">Mídia</h3>
+            <h3 className="age-card-heading">Vídeo</h3>
 
             <div className="age-form-group">
-              <label className="age-label" htmlFor="f-video">URL do vídeo (YouTube)</label>
-              <input
+              <label className="age-label" htmlFor="f-video-provider">Plataforma</label>
+              <select
+                id="f-video-provider"
+                className="age-select"
+                value={fVideoProvider}
+                onChange={(e) => { setFVideoProvider(e.target.value); markDirty() }}
+              >
+                <option value="">Auto detectar</option>
+                <option value="youtube">YouTube</option>
+                <option value="loom">Loom</option>
+                <option value="vturb">VTurb</option>
+                <option value="google_drive">Google Drive</option>
+              </select>
+            </div>
+
+            <div className="age-form-group">
+              <label className="age-label" htmlFor="f-video">
+                {fVideoProvider === 'vturb' ? 'Código embed' : 'URL do vídeo'}
+              </label>
+              <textarea
                 id="f-video"
-                type="url"
-                className={`age-input ${fVideoUrl && !videoValid ? 'age-input--error' : ''}`}
+                className={`age-textarea${videoNormalized?.error && fVideoUrl.trim() ? ' age-input--error' : ''}`}
                 value={fVideoUrl}
                 onChange={(e) => { setFVideoUrl(e.target.value); markDirty() }}
-                placeholder="https://youtube.com/watch?v=..."
+                rows={fVideoProvider === 'vturb' || fVideoUrl.includes('<') ? 5 : 2}
+                placeholder={VIDEO_PLACEHOLDERS[fVideoProvider] ?? VIDEO_PLACEHOLDERS['']}
               />
-              {fVideoUrl && !videoValid && (
-                <span className="age-field-hint age-field-hint--error">URL do YouTube inválida</span>
+              {videoNormalized?.error && fVideoUrl.trim() && (
+                <span className="age-field-hint age-field-hint--error">{videoNormalized.error}</span>
               )}
-              {videoEmbedUrl && (
-                <div className="age-video-preview">
-                  <iframe
-                    src={videoEmbedUrl}
-                    title="Prévia do vídeo"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              )}
-              <p className="age-field-hint">
-                Aceita formatos: youtube.com/watch?v=, youtu.be/, youtube.com/embed/. Para que o vídeo apareça para clientes, publique como <strong>Não listado</strong> com a opção de incorporação ativada.
-              </p>
+              <p className="age-field-hint">{VIDEO_HINTS[fVideoProvider] ?? VIDEO_HINTS['']}</p>
             </div>
+
+            {videoNormalized && fVideoUrl.trim() && !videoNormalized.error && (
+              <div className="age-video-preview-wrap">
+                {videoNormalized.embedUrl && (
+                  <div className="age-video-preview">
+                    <iframe
+                      src={videoNormalized.embedUrl}
+                      title="Prévia do vídeo"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                    />
+                  </div>
+                )}
+                {videoNormalized.provider === 'vturb' && videoNormalized.type === 'script' && (
+                  <div className="age-video-info-card">
+                    <span className="age-video-info-icon">▶</span>
+                    <p>Embed VTurb (script) detectado. Salve e visualize o guia publicado para confirmar.</p>
+                  </div>
+                )}
+                {videoNormalized.provider !== 'unknown' && (
+                  <span className="age-field-hint age-field-hint--success">
+                    ✓ {videoProviderLabel[videoNormalized.provider] ?? videoNormalized.provider} detectado
+                  </span>
+                )}
+              </div>
+            )}
 
             <div className="age-form-group">
               <label className="age-label" htmlFor="f-cover">URL da imagem de capa</label>

@@ -1,0 +1,29 @@
+.video-embed {
+  margin-bottom: 32px;
+  border-radius: var(--radius-md, 10px);
+  overflow: hidden;
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 16:9 wrapper for iframe-based embeds */
+.video-embed--16-9 {
+  position: relative;
+  padding-bottom: 56.25%;
+  height: 0;
+  background: #000;
+}
+
+.video-embed--16-9 iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+@media (prefers-color-scheme: dark) {
+  .video-embed {
+    box-shadow: 0 2px 16px rgba(0, 0, 0, 0.3);
+  }
+}

@@ -1,19 +1,21 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { fetchGuideBySlug, fetchRelatedGuides } from '../lib/queries'
 import type { DbGuideWithCategory } from '../types/database'
 import GuideContent from '../components/GuideContent'
-import { toYouTubeEmbedUrl } from '../utils/youtube'
+import VideoEmbed from '../components/VideoEmbed'
 import './GuidePage.css'
 
 export default function GuidePage() {
   const { slug } = useParams<{ slug: string }>()
+  const navigate = useNavigate()
 
   const [guide, setGuide] = useState<DbGuideWithCategory | null>(null)
   const [related, setRelated] = useState<DbGuideWithCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState(false)
+  const [showBack, setShowBack] = useState(false)
 
   useEffect(() => {
     if (!slug) return
@@ -52,6 +54,20 @@ export default function GuidePage() {
     load()
     return () => { cancelled = true }
   }, [slug])
+
+  useEffect(() => {
+    const onScroll = () => setShowBack(window.scrollY > 280)
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  function handleBack() {
+    if (window.history.length > 1) {
+      window.history.back()
+    } else {
+      navigate('/suporte')
+    }
+  }
 
   if (loading) {
     return (
@@ -105,8 +121,11 @@ export default function GuidePage() {
 
   if (!guide) return null
 
-  const videoEmbed = guide.video_url ? toYouTubeEmbedUrl(guide.video_url) ?? guide.video_url : null
-  const hasVideo = videoEmbed != null
+  const hasVideo = !!(
+    guide.video_url ||
+    guide.metadata?.video_embed_url ||
+    guide.metadata?.video_embed_code
+  )
   const tags = guide.tags ?? []
   const readTime = guide.estimated_read_minutes ?? 5
   const updatedAt = guide.updated_at ?? guide.published_at
@@ -155,15 +174,12 @@ export default function GuidePage() {
               )}
             </header>
 
-            {hasVideo && videoEmbed && (
-              <div className="guide-video-block">
-                <iframe
-                  src={videoEmbed}
-                  title={`Vídeo: ${guide.title}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+            {hasVideo && (
+              <VideoEmbed
+                videoUrl={guide.video_url}
+                metadata={guide.metadata}
+                title={`Vídeo: ${guide.title}`}
+              />
             )}
 
             {guide.content_html ? (
@@ -214,6 +230,15 @@ export default function GuidePage() {
           </aside>
         </div>
       </div>
+
+      <button
+        type="button"
+        className={`guide-float-back${showBack ? ' guide-float-back--visible' : ''}`}
+        onClick={handleBack}
+        aria-label="Voltar"
+      >
+        ← Voltar
+      </button>
     </div>
   )
 }
