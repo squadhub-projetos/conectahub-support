@@ -30,3 +30,60 @@ export interface DbGuide {
 export interface DbGuideWithCategory extends DbGuide {
   category: DbCategory | null
 }
+
+export interface SupportClient {
+  id: string
+  username: string
+  display_name: string
+  company_name: string | null
+  slug: string
+  login_email: string
+  auth_user_id: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface SupportClientCategory {
+  id: string
+  client_id: string
+  name: string
+  slug: string
+  description: string | null
+  order_index: number
+  is_active: boolean
+}
+
+export interface SupportGuideClientAccess {
+  id: string
+  guide_id: string
+  client_id: string
+  client_category_id: string | null
+  created_at: string
+}
+
+export interface SupportGuideRequest {
+  id: string
+  name: string
+  email: string
+  topic: string
+  description: string | null
+  status: string
+  created_at: string
+}
+
+export interface ClientGuideGroup {
+  category: SupportClientCategory | null
+  guides: DbGuideWithCategory[]
+}
+
+export interface EditorClientGuideGroup {
+  category: SupportClientCategory | null
+  guides: DbGuideWithCategory[]
+}
+
+export interface EditorEntry {
+  id: string
+  email: string
+  role: string
+  created_at: string
+}

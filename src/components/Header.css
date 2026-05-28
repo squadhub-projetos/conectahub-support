@@ -16,10 +16,10 @@
 }
 
 .header-inner {
-  max-width: 1280px;
+  width: min(calc(100% - 32px), 1560px);
   margin: 0 auto;
   height: 100%;
-  padding: 0 32px;
+  padding: 0 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -104,11 +104,44 @@
   padding: 3px 9px;
 }
 
+.header-user-badge--client {
+  color: #7c3aed;
+  background: color-mix(in srgb, #7c3aed 12%, transparent);
+  border-color: color-mix(in srgb, #7c3aed 25%, transparent);
+  max-width: 160px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Right: actions ── */
 .header-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.header-manage-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--border-color);
+  color: var(--text-secondary);
+  transition: background 0.18s, border-color 0.18s, color 0.18s;
+  white-space: nowrap;
+}
+
+.header-manage-btn:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* ── Auth button (Entrar / Sair) — glass style ── */

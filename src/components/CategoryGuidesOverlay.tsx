@@ -12,6 +12,7 @@ interface CategoryGuidesOverlayProps {
   guides: DbGuideWithCategory[]
   onClose: () => void
   mode?: 'editor'
+  onDeleteGuide?: (guide: DbGuideWithCategory) => void
 }
 
 export default function CategoryGuidesOverlay({
@@ -19,6 +20,7 @@ export default function CategoryGuidesOverlay({
   guides,
   onClose,
   mode,
+  onDeleteGuide,
 }: CategoryGuidesOverlayProps) {
   const [search, setSearch] = useState('')
 
@@ -120,7 +122,7 @@ export default function CategoryGuidesOverlay({
                 <div className="cgo-guide-list">
                   {group.guides.map((guide) =>
                     mode === 'editor' ? (
-                      <EditorGuideItem key={guide.id} guide={guide} />
+                      <EditorGuideItem key={guide.id} guide={guide} onDeleteRequest={onDeleteGuide} />
                     ) : (
                       <GuideListItem key={guide.id} guide={guide} onClick={onClose} />
                     )

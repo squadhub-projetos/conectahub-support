@@ -1,15 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Search, X as XIcon } from 'lucide-react'
-import { fetchCategories, fetchAllGuides } from '../lib/queries'
+import { Search, X as XIcon, Plus } from 'lucide-react'
+import { fetchCategories, fetchAllGuides, deleteGuide } from '../lib/queries'
 import type { DbCategory, DbGuideWithCategory } from '../types/database'
 import CategoryCard from '../components/CategoryCard'
 import CategoryGuidesOverlay from '../components/CategoryGuidesOverlay'
 import SearchResultsOverlay from '../components/SearchResultsOverlay'
 import AdminRouteGuard from '../components/AdminRouteGuard'
-import FloatingCreateGuideButton from '../components/FloatingCreateGuideButton'
 import CreateGuideModal from '../components/CreateGuideModal'
-import EditorSettingsButton from '../components/EditorSettingsButton'
-import EditorSettingsModal from '../components/EditorSettingsModal'
+import DeleteGuideModal from '../components/DeleteGuideModal'
+import EditorClientArea from '../components/EditorClientArea'
 import './SupportHome.css'
 import './AdminGuides.css'
 
@@ -23,7 +22,8 @@ export default function AdminGuides() {
   const [showSearch, setShowSearch] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
-  const [showSettings, setShowSettings] = useState(false)
+  const [guideToDelete, setGuideToDelete] = useState<DbGuideWithCategory | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -72,6 +72,20 @@ export default function AdminGuides() {
     setShowSearch(false)
   }
 
+  async function handleDeleteConfirm() {
+    if (!guideToDelete) return
+    setDeleting(true)
+    try {
+      await deleteGuide(guideToDelete.id)
+      setGuides((prev) => prev.filter((g) => g.id !== guideToDelete.id))
+      setGuideToDelete(null)
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setDeleting(false)
+    }
+  }
+
   return (
     <AdminRouteGuard>
       <div className="support-home">
@@ -113,8 +127,16 @@ export default function AdminGuides() {
           <section className="categories-section">
             <div className="section-inner">
               <div className="admin-section-header">
-                <h2 className="section-title">Categorias</h2>
-                <span className="admin-guide-count">{guides.length} guias no total</span>
+                <h2 className="section-title">Guias gerais</h2>
+                <span className="admin-guide-count">{guides.length} guias</span>
+                <button
+                  type="button"
+                  className="admin-new-guide-btn"
+                  onClick={() => setShowCreateModal(true)}
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                  Novo guia geral
+                </button>
               </div>
               {loading ? (
                 <div className="categories-grid">
@@ -136,6 +158,8 @@ export default function AdminGuides() {
             </div>
           </section>
         )}
+
+        <EditorClientArea />
       </div>
 
       {activeCategoryId && activeCategory && (
@@ -144,6 +168,7 @@ export default function AdminGuides() {
           guides={categoryGuides}
           onClose={() => setActiveCategoryId(null)}
           mode="editor"
+          onDeleteGuide={setGuideToDelete}
         />
       )}
 
@@ -156,9 +181,6 @@ export default function AdminGuides() {
         />
       )}
 
-      <EditorSettingsButton onClick={() => setShowSettings(true)} />
-      <FloatingCreateGuideButton onClick={() => setShowCreateModal(true)} />
-
       {showCreateModal && (
         <CreateGuideModal
           categories={categories}
@@ -166,8 +188,13 @@ export default function AdminGuides() {
         />
       )}
 
-      {showSettings && (
-        <EditorSettingsModal onClose={() => setShowSettings(false)} />
+      {guideToDelete && (
+        <DeleteGuideModal
+          guide={guideToDelete}
+          deleting={deleting}
+          onCancel={() => setGuideToDelete(null)}
+          onConfirm={handleDeleteConfirm}
+        />
       )}
     </AdminRouteGuard>
   )

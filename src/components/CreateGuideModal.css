@@ -60,6 +60,7 @@
 .cgm-title {
   font-size: 20px;
   font-weight: 700;
+  font-family: var(--font-display);
   color: var(--text-primary);
   margin: 0 0 6px;
   letter-spacing: -0.3px;
@@ -126,7 +127,7 @@
 }
 
 .cgm-input--mono {
-  font-family: ui-monospace, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 

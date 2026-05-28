@@ -7,9 +7,12 @@ import CategoryGuidesOverlay from '../components/CategoryGuidesOverlay'
 import SearchResultsOverlay from '../components/SearchResultsOverlay'
 import SupportRequestForm from '../components/SupportRequestForm'
 import SupportTicketForm from '../components/SupportTicketForm'
+import ClientArea from '../components/ClientArea'
+import { useAuth } from '../contexts/AuthContext'
 import './SupportHome.css'
 
 export default function SupportHome() {
+  const { role, clientData } = useAuth()
   const [categories, setCategories] = useState<DbCategory[]>([])
   const [guides, setGuides] = useState<DbGuideWithCategory[]>([])
   const [loading, setLoading] = useState(true)
@@ -95,6 +98,10 @@ export default function SupportHome() {
             </div>
           </div>
         </section>
+
+        {role === 'client' && clientData && (
+          <ClientArea clientData={clientData} />
+        )}
 
         {error ? (
           <div className="data-error">

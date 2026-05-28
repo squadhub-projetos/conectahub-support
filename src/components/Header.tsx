@@ -1,34 +1,26 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { LogIn, LogOut } from 'lucide-react'
-import type { User } from '@supabase/supabase-js'
+import { LogIn, LogOut, Settings } from 'lucide-react'
 import ThemeToggle from './ThemeToggle'
 import EditorLoginModal from './EditorLoginModal'
+import EditorSettingsModal from './EditorSettingsModal'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import squadhubIcon from '../assets/squadhub-icon.svg'
 import './Header.css'
 
 export default function Header() {
   const [showLogin, setShowLogin] = useState(false)
-  const [user, setUser] = useState<User | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const { user, role, clientData } = useAuth()
   const navigate = useNavigate()
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
-  }, [])
 
   async function handleSignOut() {
     await supabase.auth.signOut()
     navigate('/suporte')
   }
+
+  const isLoggedIn = user != null && (role === 'editor' || role === 'client')
 
   return (
     <>
@@ -44,13 +36,28 @@ export default function Header() {
                 <span className="logo-product">Central de Ajuda</span>
               </span>
             </Link>
-            {user && (
+            {role === 'editor' && (
               <span className="header-user-badge">Editor</span>
+            )}
+            {role === 'client' && clientData && (
+              <span className="header-user-badge header-user-badge--client">
+                {clientData.company_name || clientData.display_name}
+              </span>
             )}
           </div>
 
           <div className="header-actions">
-            {user ? (
+            {role === 'editor' && (
+              <button
+                type="button"
+                className="header-manage-btn"
+                onClick={() => setShowSettings(true)}
+              >
+                <Settings size={14} strokeWidth={2} />
+                <span>Gerenciar</span>
+              </button>
+            )}
+            {isLoggedIn ? (
               <button
                 type="button"
                 className="header-auth-btn header-auth-btn--out"
@@ -75,6 +82,7 @@ export default function Header() {
       </header>
 
       {showLogin && <EditorLoginModal onClose={() => setShowLogin(false)} />}
+      {showSettings && <EditorSettingsModal onClose={() => setShowSettings(false)} />}
     </>
   )
 }

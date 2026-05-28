@@ -12,7 +12,12 @@ export interface NormalizedVideoEmbed {
 export function detectVideoProvider(input: string): VideoProvider {
   const s = input.trim()
 
-  if (s.includes('converteai.net') || s.includes('vturb.com.br') || s.includes('player.vturb')) {
+  if (
+    s.includes('vturb-smartplayer') ||
+    s.includes('converteai.net') ||
+    s.includes('vturb.com.br') ||
+    s.includes('player.vturb')
+  ) {
     return 'vturb'
   }
   if (s.includes('youtube.com') || s.includes('youtu.be') || s.includes('youtube-nocookie.com')) {
@@ -118,8 +123,8 @@ export function parseVturbEmbed(
     return { type: 'iframe', embedUrl: srcMatch?.[1], embedCode: s }
   }
 
-  // Script-based embed
-  if (s.includes('<script') || s.includes('<div')) {
+  // Script-based embed (includes new <vturb-smartplayer> format)
+  if (s.includes('<script') || s.includes('<div') || s.includes('<vturb-smartplayer')) {
     return { type: 'script', embedCode: s }
   }
 

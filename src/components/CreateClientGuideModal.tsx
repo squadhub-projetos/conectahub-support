@@ -1,14 +1,15 @@
-import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useState, useEffect, type FormEvent } from 'react'
 import { X } from 'lucide-react'
-import { createGuide } from '../lib/queries'
-import type { DbCategory } from '../types/database'
-import { getGroupsByCategory, type SupportGroup } from '../data/supportGroups'
+import { createClientGuide, fetchClientCategories } from '../lib/queries'
+import type { SupportClientCategory } from '../types/database'
+import { getReadableError } from '../utils/getReadableError'
 import './CreateGuideModal.css'
 
-interface CreateGuideModalProps {
-  categories: DbCategory[]
+interface CreateClientGuideModalProps {
+  clientId: string
+  clientName: string
   onClose: () => void
+  onCreated: (guideId: string) => void
 }
 
 function slugify(text: string): string {
@@ -23,23 +24,23 @@ function slugify(text: string): string {
     .replace(/^-|-$/g, '')
 }
 
-export default function CreateGuideModal({ categories, onClose }: CreateGuideModalProps) {
-  const navigate = useNavigate()
-
-  const initialCatId = categories[0]?.id ?? ''
-  const initialGroups = getGroupsByCategory(categories[0]?.slug)
-
+export default function CreateClientGuideModal({ clientId, clientName, onClose, onCreated }: CreateClientGuideModalProps) {
   const [title, setTitle] = useState('')
   const [slug, setSlug] = useState('')
   const [slugEdited, setSlugEdited] = useState(false)
-  const [categoryId, setCategoryId] = useState(initialCatId)
-  const [availableGroups, setAvailableGroups] = useState<SupportGroup[]>(initialGroups)
-  const [supportGroup, setSupportGroup] = useState(initialGroups[0]?.slug ?? '')
   const [excerpt, setExcerpt] = useState('')
-  const [status, setStatus] = useState<'draft' | 'published'>('draft')
-
+  const [status, setStatus] = useState<'client_draft' | 'client_published'>('client_draft')
+  const [clientCategories, setClientCategories] = useState<SupportClientCategory[]>([])
+  const [clientCategoryId, setClientCategoryId] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    fetchClientCategories(clientId).then((list) => {
+      setClientCategories(list)
+      setClientCategoryId(list[0]?.id ?? '')
+    }).catch(() => {})
+  }, [clientId])
 
   function handleTitleChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
@@ -52,49 +53,31 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
     setSlug(e.target.value)
   }
 
-  function handleCategoryChange(newId: string) {
-    setCategoryId(newId)
-    const cat = categories.find((c) => c.id === newId)
-    const groups = getGroupsByCategory(cat?.slug)
-    setAvailableGroups(groups)
-    if (!groups.find((g) => g.slug === supportGroup)) {
-      setSupportGroup(groups[0]?.slug ?? '')
-    }
-  }
-
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setErrorMsg(null)
 
     if (!title.trim()) { setErrorMsg('O título é obrigatório.'); return }
     if (!slug.trim()) { setErrorMsg('O slug é obrigatório.'); return }
-    if (!categoryId) { setErrorMsg('Selecione uma categoria.'); return }
-
-    const groupLabel = availableGroups.find((g) => g.slug === supportGroup)?.label ?? supportGroup
 
     setLoading(true)
     try {
-      const guide = await createGuide({
+      const guide = await createClientGuide({
         title: title.trim(),
         slug: slug.trim(),
-        category_id: categoryId,
         excerpt: excerpt.trim() || null,
         status,
-        metadata: {
-          support_group: supportGroup,
-          support_group_label: groupLabel,
-          visibility: 'general',
-        },
+        clientId,
+        clientCategoryId: clientCategoryId || null,
       })
-      navigate(`/admin/guides/${guide.id}/edit`)
+      onCreated(guide.id)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
+      const msg = getReadableError(err)
       setErrorMsg(
         msg.includes('unique') || msg.includes('duplicate')
           ? 'Já existe um guia com esse slug. Escolha outro.'
           : `Erro ao criar guia: ${msg}`
       )
-    } finally {
       setLoading(false)
     }
   }
@@ -102,12 +85,12 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
   return (
     <div className="cgm-backdrop" onClick={onClose}>
       <div className="cgm-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="cgm-close" onClick={onClose} aria-label="Fechar">
+        <button type="button" className="cgm-close" onClick={onClose} aria-label="Fechar" disabled={loading}>
           <X size={18} />
         </button>
 
         <div className="cgm-header">
-          <h2 className="cgm-title">Novo guia geral</h2>
+          <h2 className="cgm-title">Novo guia para {clientName}</h2>
           <p className="cgm-sub">Preencha os dados básicos. Você poderá editar o conteúdo na próxima tela.</p>
         </div>
 
@@ -121,7 +104,7 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
               className="cgm-input"
               value={title}
               onChange={handleTitleChange}
-              placeholder="Ex: Como criar seu primeiro funil"
+              placeholder="Ex: Como usar o painel do cliente"
               required
               disabled={loading}
               autoFocus
@@ -135,43 +118,27 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
               className="cgm-input cgm-input--mono"
               value={slug}
               onChange={handleSlugChange}
-              placeholder="como-criar-seu-primeiro-funil"
+              placeholder="como-usar-painel-do-cliente"
               required
               disabled={loading}
             />
             <span className="cgm-hint">Gerado automaticamente — pode ser editado</span>
           </label>
 
-          <div className="cgm-row">
-            <label className="cgm-label">
-              Categoria *
-              <select
-                className="cgm-select"
-                value={categoryId}
-                onChange={(e) => handleCategoryChange(e.target.value)}
-                disabled={loading}
-                required
-              >
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
-              </select>
-            </label>
-
-            <label className="cgm-label">
-              Grupamento
-              <select
-                className="cgm-select"
-                value={supportGroup}
-                onChange={(e) => setSupportGroup(e.target.value)}
-                disabled={loading || !categoryId}
-              >
-                {availableGroups.map((g) => (
-                  <option key={g.slug} value={g.slug}>{g.label}</option>
-                ))}
-              </select>
-            </label>
-          </div>
+          <label className="cgm-label">
+            Categoria do cliente
+            <select
+              className="cgm-select"
+              value={clientCategoryId}
+              onChange={(e) => setClientCategoryId(e.target.value)}
+              disabled={loading}
+            >
+              <option value="">Sem categoria</option>
+              {clientCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </label>
 
           <label className="cgm-label">
             Descrição curta
@@ -192,25 +159,25 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
                 <input
                   type="radio"
                   name="status"
-                  value="draft"
-                  checked={status === 'draft'}
-                  onChange={() => setStatus('draft')}
+                  value="client_draft"
+                  checked={status === 'client_draft'}
+                  onChange={() => setStatus('client_draft')}
                   disabled={loading}
                 />
                 <span>Rascunho</span>
-                <span className="cgm-radio-hint">Não aparece para usuários</span>
+                <span className="cgm-radio-hint">Não aparece para o cliente</span>
               </label>
               <label className="cgm-radio-option">
                 <input
                   type="radio"
                   name="status"
-                  value="published"
-                  checked={status === 'published'}
-                  onChange={() => setStatus('published')}
+                  value="client_published"
+                  checked={status === 'client_published'}
+                  onChange={() => setStatus('client_published')}
                   disabled={loading}
                 />
                 <span>Publicado</span>
-                <span className="cgm-radio-hint">Visível imediatamente</span>
+                <span className="cgm-radio-hint">Visível para o cliente</span>
               </label>
             </div>
           </div>

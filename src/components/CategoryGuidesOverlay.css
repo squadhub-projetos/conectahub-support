@@ -78,6 +78,7 @@
 .cgo-title {
   font-size: 22px;
   font-weight: 700;
+  font-family: var(--font-display);
   color: var(--text-primary);
   margin: 0;
   letter-spacing: -0.4px;

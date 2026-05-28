@@ -1,12 +1,17 @@
 import { useState } from 'react'
 import { BookOpen, CheckCircle2 } from 'lucide-react'
-import { submitSupportRequest } from '../lib/queries'
+import { submitGuideRequest } from '../lib/queries'
+import { useAuth } from '../contexts/AuthContext'
+import { getReadableError } from '../utils/getReadableError'
 import './SupportRequestForm.css'
 
 export default function SupportRequestForm() {
+  const { clientData } = useAuth()
+
   const [isOpen, setIsOpen] = useState(false)
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
+  const [company, setCompany] = useState('')
   const [topic, setTopic] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
@@ -19,12 +24,18 @@ export default function SupportRequestForm() {
     setLoading(true)
     setError(null)
     try {
-      await submitSupportRequest({ name: name.trim(), email: email.trim(), topic: topic.trim(), description: description.trim() })
+      await submitGuideRequest({
+        name: name.trim(),
+        email: email.trim(),
+        company: company.trim() || undefined,
+        topic: topic.trim(),
+        description: description.trim(),
+        client_id: clientData?.id,
+      })
       setSuccess(true)
-      setName(''); setEmail(''); setTopic(''); setDescription('')
+      setName(''); setEmail(''); setCompany(''); setTopic(''); setDescription('')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao enviar. Tente novamente.'
-      setError(msg)
+      setError(getReadableError(err))
     } finally {
       setLoading(false)
     }
@@ -88,6 +99,11 @@ export default function SupportRequestForm() {
                     <label className="srf-label" htmlFor="srf-email">E-mail <span className="srf-req">*</span></label>
                     <input id="srf-email" type="email" className="srf-input" value={email} onChange={e => setEmail(e.target.value)} placeholder="joao@empresa.com" required />
                   </div>
+                </div>
+
+                <div className="srf-group">
+                  <label className="srf-label" htmlFor="srf-company">Empresa</label>
+                  <input id="srf-company" type="text" className="srf-input" value={company} onChange={e => setCompany(e.target.value)} placeholder="Nome da sua empresa (opcional)" />
                 </div>
 
                 <div className="srf-group">

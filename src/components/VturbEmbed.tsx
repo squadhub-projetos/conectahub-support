@@ -17,6 +17,11 @@ interface ParsedEmbed {
   scripts: ParsedScript[]
 }
 
+function extractScriptSrcFromInline(inline: string): string | undefined {
+  const m = inline.match(/\.src\s*=\s*["']([^"']+)["']/)
+  return m?.[1]
+}
+
 function parseEmbedCode(code: string): ParsedEmbed {
   const scripts: ParsedScript[] = []
   const scriptRegex = /<script([^>]*)>([\s\S]*?)<\/script>/gi
@@ -66,7 +71,14 @@ export default function VturbEmbed({ embedCode, title }: VturbEmbedProps) {
           el.setAttribute(k, v)
         }
       } else if (s.inline) {
-        el.textContent = s.inline
+        const extractedSrc = extractScriptSrcFromInline(s.inline)
+        if (!extractedSrc) continue
+        if (document.querySelector(`script[src="${extractedSrc}"]`)) continue
+        el.src = extractedSrc
+        el.async = true
+        document.body.appendChild(el)
+        addedScripts.push(el)
+        continue
       }
       document.body.appendChild(el)
       addedScripts.push(el)

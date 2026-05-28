@@ -65,6 +65,7 @@
 .category-name {
   font-size: 17px;
   font-weight: 800;
+  font-family: var(--font-display);
   color: var(--text-primary);
   line-height: 1.2;
   letter-spacing: -0.3px;

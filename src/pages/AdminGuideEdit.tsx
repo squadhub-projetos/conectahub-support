@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { fetchGuideById, fetchCategories, updateGuide } from '../lib/queries'
-import type { DbGuideWithCategory, DbCategory } from '../types/database'
+import {
+  fetchGuideById, fetchCategories, updateGuide, deleteGuide,
+  fetchClients, fetchClientCategories, fetchGuideClientAccess,
+  upsertGuideClientAccess, removeGuideClientAccess,
+} from '../lib/queries'
+import type { DbGuideWithCategory, DbCategory, SupportClient, SupportClientCategory } from '../types/database'
 import { getGroupsByCategory, DEFAULT_GROUPS, type SupportGroup } from '../data/supportGroups'
 import { normalizeVideoEmbed, type VideoProvider } from '../utils/videoEmbed'
+import { getReadableError } from '../utils/getReadableError'
 import AdminRouteGuard from '../components/AdminRouteGuard'
 import RichGuideEditor from '../components/RichGuideEditor'
+import DeleteGuideModal from '../components/DeleteGuideModal'
 import './AdminGuideEdit.css'
 
 const VIDEO_PLACEHOLDERS: Record<string, string> = {
@@ -20,7 +26,7 @@ const VIDEO_HINTS: Record<string, string> = {
   '': 'Cole uma URL do YouTube, Loom, Google Drive ou o código embed da VTurb.',
   youtube: 'Aceita youtube.com/watch?v=..., youtu.be/..., youtube.com/embed/... ou youtube.com/shorts/...',
   loom: 'Aceita loom.com/share/ID ou loom.com/embed/ID — garanta que o vídeo esteja liberado para qualquer pessoa com o link.',
-  vturb: 'Cole o código embed (iframe ou script) da VTurb. Adicione o domínio do site na aba de segurança da VTurb para o player carregar corretamente.',
+  vturb: 'Cole o código embed da VTurb — aceita iframe, script tradicional ou o formato <vturb-smartplayer>. Adicione o domínio do site na aba de segurança da VTurb.',
   google_drive: 'Aceita drive.google.com/file/d/ID/view — garanta que o arquivo esteja compartilhado com permissão de visualização.',
 }
 
@@ -44,6 +50,8 @@ function AdminGuideEditInner() {
   const [savedMsg, setSavedMsg] = useState<string | null>(null)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [dirty, setDirty] = useState(false)
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Form fields
   const [fTitle, setFTitle] = useState('')
@@ -61,6 +69,11 @@ function AdminGuideEditInner() {
   const [fContentHtml, setFContentHtml] = useState('')
   const [fContentJson, setFContentJson] = useState<unknown>(null)
   const [fContentMd, setFContentMd] = useState('')
+  const [fVisibility, setFVisibility] = useState<'general' | 'client'>('general')
+  const [fClientId, setFClientId] = useState('')
+  const [fClientCategoryId, setFClientCategoryId] = useState('')
+  const [clients, setClients] = useState<SupportClient[]>([])
+  const [clientCategories, setClientCategories] = useState<SupportClientCategory[]>([])
 
   useEffect(() => {
     if (!id) return
@@ -103,6 +116,24 @@ function AdminGuideEditInner() {
         setFContentHtml(g.content_html ?? '')
         setFContentMd(g.content_markdown ?? '')
         setFContentJson(g.content_json ?? null)
+
+        const vis = (g.metadata?.visibility as string | undefined) === 'client' ? 'client' : 'general'
+        setFVisibility(vis)
+        if (vis === 'client') {
+          const [cls, access] = await Promise.all([fetchClients(), fetchGuideClientAccess(g.id)])
+          if (cancelled) return
+          setClients(cls)
+          if (access) {
+            setFClientId(access.client_id)
+            setFClientCategoryId(access.client_category_id ?? '')
+            const cats = await fetchClientCategories(access.client_id)
+            if (!cancelled) setClientCategories(cats)
+          } else if (cls.length > 0) {
+            setFClientId(cls[0].id)
+            const cats = await fetchClientCategories(cls[0].id)
+            if (!cancelled) setClientCategories(cats)
+          }
+        }
       } catch (err) {
         if (!cancelled) setError('Não foi possível carregar o guia.')
         console.error(err)
@@ -115,7 +146,32 @@ function AdminGuideEditInner() {
     return () => { cancelled = true }
   }, [id])
 
+  useEffect(() => {
+    if (fVisibility !== 'client' || clients.length > 0) return
+    fetchClients().then((list) => {
+      setClients(list)
+      if (!fClientId && list.length > 0) setFClientId(list[0].id)
+    }).catch(() => {})
+  }, [fVisibility, clients.length, fClientId])
+
+  useEffect(() => {
+    if (!fClientId) { setClientCategories([]); return }
+    fetchClientCategories(fClientId).then(setClientCategories).catch(() => {})
+  }, [fClientId])
+
   const markDirty = useCallback(() => setDirty(true), [])
+
+  function handleVisibilityChange(vis: 'general' | 'client') {
+    setFVisibility(vis)
+    if (vis === 'client') {
+      if (fStatus === 'draft') setFStatus('client_draft')
+      else if (fStatus === 'published') setFStatus('client_published')
+    } else {
+      if (fStatus === 'client_draft') setFStatus('draft')
+      else if (fStatus === 'client_published') setFStatus('published')
+    }
+    markDirty()
+  }
 
   function handleCategoryChange(newId: string) {
     setFCategoryId(newId)
@@ -165,15 +221,30 @@ function AdminGuideEditInner() {
     }
     const baseMetadata = Object.fromEntries(
       Object.entries(guide.metadata ?? {}).filter(
-        ([k]) => !['video_provider', 'video_embed_type', 'video_embed_url', 'video_embed_code'].includes(k),
+        ([k]) => ![
+          'video_provider', 'video_embed_type', 'video_embed_url', 'video_embed_code',
+          'visibility', 'client_id', 'client_category_id', 'client_slug', 'client_name',
+        ].includes(k),
       ),
     )
 
     try {
+      const isClientGuide = fVisibility === 'client'
+
+      if (isClientGuide && fStatus === 'client_published' && !fClientId) {
+        setSaveError('Esta guia não está vinculada a um cliente. Selecione o cliente antes de publicar.')
+        setSaving(false)
+        return
+      }
+
+      const clientForMeta = isClientGuide && fClientId
+        ? clients.find((c) => c.id === fClientId) ?? null
+        : null
+
       await updateGuide(id, {
         title: fTitle.trim() || guide.title,
         slug: fSlug.trim() || guide.slug,
-        category_id: fCategoryId || guide.category_id,
+        category_id: isClientGuide ? null : (fCategoryId || guide.category_id),
         excerpt: fExcerpt.trim() || null,
         status: fStatus,
         tags: tagsArray,
@@ -185,31 +256,52 @@ function AdminGuideEditInner() {
         content_json: fContentJson ?? null,
         metadata: {
           ...baseMetadata,
-          support_group: fSupportGroup,
-          support_group_label: groupLabel,
+          ...(isClientGuide
+            ? {
+                client_id: fClientId || null,
+                client_category_id: fClientCategoryId || null,
+                ...(clientForMeta
+                  ? {
+                      client_slug: clientForMeta.slug,
+                      client_name: clientForMeta.company_name || clientForMeta.display_name,
+                    }
+                  : {}),
+              }
+            : { support_group: fSupportGroup, support_group_label: groupLabel }),
+          visibility: fVisibility,
           ...(videoInput ? videoMeta : {}),
         },
-        ...(fStatus === 'published' && !guide.published_at
+        ...((fStatus === 'published' || fStatus === 'client_published') && !guide.published_at
           ? { published_at: new Date().toISOString() }
           : {}),
       })
+
+      if (fVisibility === 'client' && fClientId) {
+        await upsertGuideClientAccess(id, fClientId, fClientCategoryId || null)
+      } else {
+        await removeGuideClientAccess(id)
+      }
+
       setSavedMsg('Guia salvo com sucesso!')
       setDirty(false)
       setTimeout(() => setSavedMsg(null), 3000)
     } catch (err: unknown) {
       if (import.meta.env.DEV) console.error('[AdminGuideEdit] save error:', err)
-      let msg = 'Erro desconhecido'
-      if (err instanceof Error) {
-        msg = err.message
-      } else if (err && typeof err === 'object') {
-        const e = err as Record<string, unknown>
-        msg = (e.message as string) || (e.details as string) || (e.hint as string) || JSON.stringify(err)
-      } else {
-        msg = String(err)
-      }
-      setSaveError(`Erro ao salvar: ${msg}`)
+      setSaveError(`Erro ao salvar: ${getReadableError(err)}`)
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleDelete() {
+    if (!id) return
+    setDeleting(true)
+    try {
+      await deleteGuide(id)
+      navigate('/admin/guides')
+    } catch (err) {
+      if (import.meta.env.DEV) console.error(err)
+      setDeleting(false)
     }
   }
 
@@ -269,7 +361,7 @@ function AdminGuideEditInner() {
           {savedMsg && <span className="age-saved-msg">✓ {savedMsg}</span>}
           {saveError && <span className="age-save-error" title={saveError}>{saveError}</span>}
           <a
-            href={`/suporte/${guide.slug}`}
+            href={`/admin/guides/${id}/preview`}
             target="_blank"
             rel="noreferrer"
             className="age-view-btn"
@@ -359,8 +451,17 @@ function AdminGuideEditInner() {
             <div className="age-form-group">
               <label className="age-label" htmlFor="f-status">Status</label>
               <select id="f-status" className="age-select" value={fStatus} onChange={(e) => { setFStatus(e.target.value); markDirty() }}>
-                <option value="draft">Rascunho</option>
-                <option value="published">Publicado</option>
+                {fVisibility === 'client' ? (
+                  <>
+                    <option value="client_draft">Rascunho</option>
+                    <option value="client_published">Publicado</option>
+                  </>
+                ) : (
+                  <>
+                    <option value="draft">Rascunho</option>
+                    <option value="published">Publicado</option>
+                  </>
+                )}
               </select>
             </div>
 
@@ -379,28 +480,78 @@ function AdminGuideEditInner() {
             <h3 className="age-card-heading">Classificação</h3>
 
             <div className="age-form-group">
-              <label className="age-label" htmlFor="f-category">Categoria</label>
-              <select id="f-category" className="age-select" value={fCategoryId} onChange={(e) => handleCategoryChange(e.target.value)}>
-                {categories.map((cat) => (
-                  <option key={cat.id} value={cat.id}>{cat.name}</option>
-                ))}
+              <label className="age-label" htmlFor="f-visibility">Visibilidade</label>
+              <select
+                id="f-visibility"
+                className="age-select"
+                value={fVisibility}
+                onChange={(e) => handleVisibilityChange(e.target.value as 'general' | 'client')}
+              >
+                <option value="general">Geral</option>
+                <option value="client">Exclusivo de cliente</option>
               </select>
             </div>
 
-            <div className="age-form-group">
-              <label className="age-label" htmlFor="f-group">Grupamento</label>
-              <select
-                id="f-group"
-                className="age-select"
-                value={fSupportGroup}
-                onChange={(e) => { setFSupportGroup(e.target.value); markDirty() }}
-                disabled={!fCategoryId}
-              >
-                {availableGroups.map((g) => (
-                  <option key={g.slug} value={g.slug}>{g.label}</option>
-                ))}
-              </select>
-            </div>
+            {fVisibility === 'client' ? (
+              <>
+                <div className="age-form-group">
+                  <label className="age-label" htmlFor="f-client">Cliente</label>
+                  <select
+                    id="f-client"
+                    className="age-select"
+                    value={fClientId}
+                    onChange={(e) => { setFClientId(e.target.value); markDirty() }}
+                    disabled={clients.length === 0}
+                  >
+                    {clients.length === 0 && <option value="">Carregando…</option>}
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>{c.display_name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="age-form-group">
+                  <label className="age-label" htmlFor="f-client-cat">Categoria do cliente</label>
+                  <select
+                    id="f-client-cat"
+                    className="age-select"
+                    value={fClientCategoryId}
+                    onChange={(e) => { setFClientCategoryId(e.target.value); markDirty() }}
+                    disabled={!fClientId}
+                  >
+                    <option value="">Sem categoria</option>
+                    {clientCategories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="age-form-group">
+                  <label className="age-label" htmlFor="f-category">Categoria</label>
+                  <select id="f-category" className="age-select" value={fCategoryId} onChange={(e) => handleCategoryChange(e.target.value)}>
+                    {categories.map((cat) => (
+                      <option key={cat.id} value={cat.id}>{cat.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="age-form-group">
+                  <label className="age-label" htmlFor="f-group">Grupamento</label>
+                  <select
+                    id="f-group"
+                    className="age-select"
+                    value={fSupportGroup}
+                    onChange={(e) => { setFSupportGroup(e.target.value); markDirty() }}
+                    disabled={!fCategoryId}
+                  >
+                    {availableGroups.map((g) => (
+                      <option key={g.slug} value={g.slug}>{g.label}</option>
+                    ))}
+                  </select>
+                </div>
+              </>
+            )}
 
             <div className="age-form-group">
               <label className="age-label" htmlFor="f-tags">Tags <span className="age-label-hint">(separadas por vírgula)</span></label>
@@ -429,7 +580,7 @@ function AdminGuideEditInner() {
 
             <div className="age-form-group">
               <label className="age-label" htmlFor="f-video">
-                {fVideoProvider === 'vturb' ? 'Código embed' : 'URL do vídeo'}
+                URL ou código de incorporação do vídeo
               </label>
               <textarea
                 id="f-video"
@@ -484,9 +635,26 @@ function AdminGuideEditInner() {
             <button type="button" className="age-back-full-btn" onClick={() => navigate('/admin/guides')}>
               ← Voltar ao modo edição
             </button>
+            <button
+              type="button"
+              className="age-delete-btn"
+              onClick={() => setShowDeleteModal(true)}
+              disabled={saving || deleting}
+            >
+              Excluir guia
+            </button>
           </div>
         </div>
       </div>
+
+      {showDeleteModal && guide && (
+        <DeleteGuideModal
+          guide={guide}
+          deleting={deleting}
+          onCancel={() => setShowDeleteModal(false)}
+          onConfirm={handleDelete}
+        />
+      )}
     </div>
   )
 }

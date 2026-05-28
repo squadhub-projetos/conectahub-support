@@ -1,52 +1,12 @@
-import { useState, useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import './AdminRouteGuard.css'
 
-type AuthState = 'loading' | 'authorized' | 'denied'
-
 export default function AdminRouteGuard({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>('loading')
+  const { role } = useAuth()
 
-  useEffect(() => {
-    let cancelled = false
-
-    async function check() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-
-        if (!session) {
-          if (!cancelled) setState('denied')
-          return
-        }
-
-        if (import.meta.env.DEV) {
-          console.log('[AdminRouteGuard] user:', session.user.id)
-        }
-
-        const { data: role, error } = await supabase.rpc('get_my_support_editor_role')
-
-        if (import.meta.env.DEV) {
-          if (error) console.error('[AdminRouteGuard] RPC error:', error)
-          else console.log('[AdminRouteGuard] role:', role)
-        }
-
-        if (!cancelled) {
-          setState(role === 'owner' || role === 'editor' ? 'authorized' : 'denied')
-        }
-      } catch (err) {
-        if (!cancelled) {
-          if (import.meta.env.DEV) console.error('[AdminRouteGuard] error:', err)
-          setState('denied')
-        }
-      }
-    }
-
-    check()
-    return () => { cancelled = true }
-  }, [])
-
-  if (state === 'loading') {
+  if (role === 'loading') {
     return (
       <div className="arg-screen">
         <div className="arg-spinner" />
@@ -55,7 +15,7 @@ export default function AdminRouteGuard({ children }: { children: ReactNode }) {
     )
   }
 
-  if (state === 'denied') {
+  if (role !== 'editor') {
     return (
       <div className="arg-screen">
         <span className="arg-icon">🔒</span>

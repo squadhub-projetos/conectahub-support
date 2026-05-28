@@ -2,6 +2,7 @@ import { useState, useCallback, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
 import './EditorLoginModal.css'
 
 interface EditorLoginModalProps {
@@ -10,7 +11,8 @@ interface EditorLoginModalProps {
 
 export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
   const navigate = useNavigate()
-  const [email, setEmail] = useState('')
+  const { refreshRole } = useAuth()
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -28,43 +30,66 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
       setErrorMsg(null)
 
       try {
+        // Build login email: if no "@", treat as username and construct technical email
+        const raw = identifier.trim()
+        const email = raw.includes('@')
+          ? raw
+          : `${raw.toLowerCase()}@clientes.conectahub.local`
+
         const { data, error } = await supabase.auth.signInWithPassword({ email, password })
         if (error || !data.user) {
-          setErrorMsg('E-mail ou senha incorretos.')
+          setErrorMsg('Usuário ou senha inválidos.')
           return
         }
 
-        if (import.meta.env.DEV) {
-          console.log('[EditorLogin] user.id:', data.user.id)
-        }
-
-        const { data: role, error: rpcError } = await supabase.rpc('get_my_support_editor_role')
-
-        if (import.meta.env.DEV) {
-          if (rpcError) console.error('[EditorLogin] RPC error:', rpcError)
-          else console.log('[EditorLogin] role:', role)
-        }
-
-        if (rpcError || (role !== 'owner' && role !== 'editor')) {
-          await supabase.auth.signOut()
-          setErrorMsg('Acesso negado. Usuário não autorizado como editor.')
+        // Check editor role
+        const { data: editorRole, error: editorErr } = await supabase.rpc('get_my_support_editor_role')
+        if (!editorErr && (editorRole === 'owner' || editorRole === 'editor')) {
+          await refreshRole()
+          setPassword('')
+          setIsClosing(true)
+          setTimeout(() => { onClose(); navigate('/admin/guides') }, 210)
           return
         }
 
-        // Close modal with animation, then navigate
-        setPassword('')
-        setIsClosing(true)
-        setTimeout(() => {
-          onClose()
-          navigate('/admin/guides')
-        }, 210)
+        // Check client role via RPC (may return single object or one-element array)
+        const { data: clientRec, error: clientErr } = await supabase.rpc('get_my_support_client')
+        const clientRecNorm: unknown = Array.isArray(clientRec) ? (clientRec as unknown[])[0] : clientRec
+        if (!clientErr && clientRecNorm && typeof clientRecNorm === 'object' && 'id' in (clientRecNorm as object)) {
+          await refreshRole()
+          setPassword('')
+          setIsClosing(true)
+          setTimeout(() => onClose(), 210)
+          return
+        }
+
+        // Fallback: direct query by login_email (handles unlinked auth_user_id)
+        if (data.user.email) {
+          const { data: clientByEmail } = await supabase
+            .from('support_clients')
+            .select('id')
+            .eq('login_email', data.user.email)
+            .eq('is_active', true)
+            .maybeSingle()
+          if (clientByEmail) {
+            await refreshRole()
+            setPassword('')
+            setIsClosing(true)
+            setTimeout(() => onClose(), 210)
+            return
+          }
+        }
+
+        // Neither editor nor client
+        await supabase.auth.signOut()
+        setErrorMsg('Acesso negado. Usuário não autorizado.')
       } catch {
         setErrorMsg('Ocorreu um erro inesperado. Tente novamente.')
       } finally {
         setLoading(false)
       }
     },
-    [email, password, navigate, onClose]
+    [identifier, password, navigate, onClose, refreshRole],
   )
 
   return (
@@ -95,13 +120,14 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
           {errorMsg && <p className="login-error">{errorMsg}</p>}
 
           <label className="login-label">
-            E-mail
+            Usuário ou e-mail
             <input
-              type="email"
+              type="text"
               className="login-input"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
+              placeholder="seu.usuario ou email@empresa.com"
               required
               disabled={loading}
             />
@@ -124,8 +150,6 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
             {loading ? 'Entrando…' : 'Entrar'}
           </button>
         </form>
-
-        <p className="login-soon-note">Em breve, uma visualização personalizada para você!</p>
       </div>
     </div>
   )

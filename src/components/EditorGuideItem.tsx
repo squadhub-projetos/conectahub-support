@@ -1,15 +1,18 @@
 import { Link } from 'react-router-dom'
+import { Trash2 } from 'lucide-react'
 import type { DbGuideWithCategory } from '../types/database'
 import './EditorGuideItem.css'
 
 interface EditorGuideItemProps {
   guide: DbGuideWithCategory
+  onDeleteRequest?: (guide: DbGuideWithCategory) => void
 }
 
-export default function EditorGuideItem({ guide }: EditorGuideItemProps) {
+export default function EditorGuideItem({ guide, onDeleteRequest }: EditorGuideItemProps) {
   const tags = guide.tags ?? []
   const readTime = guide.estimated_read_minutes ?? 5
   const hasVideo = guide.video_url != null
+  const isClientGuide = (guide.metadata?.visibility as string | undefined) === 'client'
 
   return (
     <div className="editor-guide-item">
@@ -18,6 +21,7 @@ export default function EditorGuideItem({ guide }: EditorGuideItemProps) {
           {guide.status === 'draft' && (
             <span className="egi-draft-badge">Rascunho</span>
           )}
+          {isClientGuide && <span className="egi-client-badge">🔒 Cliente</span>}
           {hasVideo && <span className="gli-video-badge">▶ Vídeo</span>}
           <span className="gli-readtime">⏱ {readTime} min</span>
         </div>
@@ -39,13 +43,23 @@ export default function EditorGuideItem({ guide }: EditorGuideItemProps) {
           Editar
         </Link>
         <a
-          href={`/suporte/${guide.slug}`}
+          href={`/admin/guides/${guide.id}/preview`}
           target="_blank"
           rel="noreferrer"
           className="egi-btn egi-btn--view"
         >
           Visualizar
         </a>
+        {onDeleteRequest && (
+          <button
+            type="button"
+            className="egi-btn egi-btn--delete"
+            onClick={() => onDeleteRequest(guide)}
+            aria-label="Excluir guia"
+          >
+            <Trash2 size={13} strokeWidth={2} />
+          </button>
+        )}
       </div>
     </div>
   )

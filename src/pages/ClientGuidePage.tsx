@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { fetchGuideBySlug, fetchRelatedGuides, checkClientGuideAccess } from '../lib/queries'
+import { fetchGuideById } from '../lib/queries'
 import type { DbGuideWithCategory } from '../types/database'
 import GuideContent from '../components/GuideContent'
 import VideoEmbed from '../components/VideoEmbed'
 import { useAuth } from '../contexts/AuthContext'
 import './GuidePage.css'
 
-export default function GuidePage() {
-  const { slug } = useParams<{ slug: string }>()
+export default function ClientGuidePage() {
+  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { role, clientData } = useAuth()
 
   const [guide, setGuide] = useState<DbGuideWithCategory | null>(null)
-  const [related, setRelated] = useState<DbGuideWithCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState(false)
@@ -21,10 +20,9 @@ export default function GuidePage() {
   const [showBack, setShowBack] = useState(false)
 
   useEffect(() => {
-    if (!slug) return
+    if (!id) return
     if (role === 'loading') return
     let cancelled = false
-    const currentSlug = slug
 
     async function load() {
       try {
@@ -33,8 +31,7 @@ export default function GuidePage() {
         setError(false)
         setAccessDenied(false)
 
-        const found = await fetchGuideBySlug(currentSlug)
-
+        const found = await fetchGuideById(id!)
         if (cancelled) return
 
         if (!found) {
@@ -43,27 +40,31 @@ export default function GuidePage() {
         }
 
         const isClientGuide = (found.metadata?.visibility as string | undefined) === 'client'
+        const isPublished = found.status === 'client_published' || found.status === 'published'
 
         if (isClientGuide) {
-          if (role === 'none') {
-            setAccessDenied(true)
+          if (role === 'none') { setAccessDenied(true); return }
+          if (role === 'editor') {
+            // Editors can see all statuses — redirect to admin preview for full context
+            if (!cancelled) navigate(`/admin/guides/${found.id}/preview`, { replace: true })
             return
           }
           if (role === 'client') {
             if (!clientData) { setAccessDenied(true); return }
-            const allowed = await checkClientGuideAccess(found.id, clientData.id)
-            if (cancelled) return
-            if (!allowed) { setAccessDenied(true); return }
+            // Validate by metadata.client_id to avoid RLS issues on the access table
+            const metaClientId = typeof found.metadata?.client_id === 'string' ? found.metadata.client_id : null
+            if (import.meta.env.DEV) console.log('[support] ClientGuidePage access check metaClientId:', metaClientId, 'clientData.id:', clientData.id)
+            if (metaClientId !== clientData.id) { setAccessDenied(true); return }
+            if (!isPublished) { setNotFound(true); return }
           }
-          // role === 'editor' → full access
+        } else {
+          // General guide accessed via /suporte/guia/:id — redirect to slug route
+          if (!cancelled) navigate(`/suporte/${found.slug}`, { replace: true })
+          return
         }
 
+        if (cancelled) return
         setGuide(found)
-
-        if (found.category_id) {
-          const rels = await fetchRelatedGuides(found.category_id, found.id)
-          if (!cancelled) setRelated(rels)
-        }
       } catch (err) {
         if (!cancelled) {
           setError(true)
@@ -76,7 +77,7 @@ export default function GuidePage() {
 
     load()
     return () => { cancelled = true }
-  }, [slug, role, clientData])
+  }, [id, role, clientData, navigate])
 
   useEffect(() => {
     const onScroll = () => setShowBack(window.scrollY > 280)
@@ -180,7 +181,7 @@ export default function GuidePage() {
         <nav className="breadcrumb">
           <Link to="/suporte">Central de Suporte</Link>
           <span className="breadcrumb-sep">›</span>
-          <span>{guide.category?.name ?? 'Guia'}</span>
+          <span>Sua Área</span>
           <span className="breadcrumb-sep">›</span>
           <span className="breadcrumb-current">{guide.title}</span>
         </nav>
@@ -239,33 +240,6 @@ export default function GuidePage() {
           </article>
 
           <aside className="guide-sidebar">
-            {guide.category && (
-              <div className="sidebar-card">
-                <h3 className="sidebar-heading">Categoria</h3>
-                <Link to="/suporte" className="sidebar-category-link">
-                  {guide.category.icon && (
-                    <span>{guide.category.icon}</span>
-                  )}
-                  {guide.category.name}
-                </Link>
-              </div>
-            )}
-
-            {related.length > 0 && (
-              <div className="sidebar-card">
-                <h3 className="sidebar-heading">Artigos relacionados</h3>
-                <ul className="related-list">
-                  {related.map((r) => (
-                    <li key={r.id}>
-                      <Link to={`/suporte/${r.slug}`} className="related-link">
-                        {r.title}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
             <div className="sidebar-card">
               <Link to="/suporte" className="back-to-support-btn">
                 ← Voltar à central
