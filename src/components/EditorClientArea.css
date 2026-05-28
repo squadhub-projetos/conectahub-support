@@ -121,18 +121,20 @@
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg, 12px);
-  padding: 16px 20px;
+  overflow: hidden;
 }
 
 .eca-group-name {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.7px;
-  color: var(--text-muted);
-  margin: 0 0 12px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid var(--border-subtle);
+  letter-spacing: 0.6px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .eca-guide-list {
@@ -302,6 +304,99 @@
   color: var(--text-muted);
   margin: 0;
   text-align: center;
+}
+
+/* Collapsible group toggle */
+.eca-group {
+  padding: 0;
+}
+
+.eca-group-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text-primary);
+  border-radius: var(--radius-lg, 12px);
+  transition: background 0.12s;
+}
+
+.eca-group-toggle:hover {
+  background: var(--bg-elevated);
+}
+
+.eca-group-toggle-icon {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.eca-group-guide-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 4px;
+}
+
+.eca-badge--hidden {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 1px 7px;
+  border-radius: 20px;
+  color: var(--text-muted);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-color);
+  margin-left: 4px;
+}
+
+/* Guide list inside open group */
+.eca-group .eca-guide-list {
+  padding: 0 8px 10px;
+}
+
+/* Drag handle */
+.eca-drag-handle {
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  cursor: grab;
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: opacity 0.15s;
+}
+
+.eca-guide-item:hover .eca-drag-handle {
+  opacity: 1;
+}
+
+.eca-drag-handle:active {
+  cursor: grabbing;
+}
+
+/* Guide time */
+.eca-guide-time {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* Drag states */
+.eca-guide-item--dragging {
+  opacity: 0.4;
+}
+
+.eca-guide-item--dragover {
+  border-color: var(--accent) !important;
+  background: color-mix(in srgb, var(--accent) 6%, var(--bg-elevated)) !important;
 }
 
 /* Error */

@@ -35,6 +35,11 @@ export default function CreateClientGuideModal({ clientId, clientName, onClose, 
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
+  function handleClose() {
+    if (title.trim() !== '' && !window.confirm('Descartar alterações?')) return
+    onClose()
+  }
+
   useEffect(() => {
     fetchClientCategories(clientId).then((list) => {
       setClientCategories(list)
@@ -65,7 +70,7 @@ export default function CreateClientGuideModal({ clientId, clientName, onClose, 
       const guide = await createClientGuide({
         title: title.trim(),
         slug: slug.trim(),
-        excerpt: excerpt.trim() || null,
+        excerpt: excerpt.trim() || `Guia sobre ${title.trim()}`,
         status,
         clientId,
         clientCategoryId: clientCategoryId || null,
@@ -83,9 +88,9 @@ export default function CreateClientGuideModal({ clientId, clientName, onClose, 
   }
 
   return (
-    <div className="cgm-backdrop" onClick={onClose}>
-      <div className="cgm-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="cgm-close" onClick={onClose} aria-label="Fechar" disabled={loading}>
+    <div className="cgm-backdrop">
+      <div className="cgm-modal">
+        <button type="button" className="cgm-close" onClick={handleClose} aria-label="Fechar" disabled={loading}>
           <X size={18} />
         </button>
 
@@ -186,7 +191,7 @@ export default function CreateClientGuideModal({ clientId, clientName, onClose, 
             <button type="submit" className="cgm-submit" disabled={loading}>
               {loading ? 'Criando…' : 'Criar e abrir editor →'}
             </button>
-            <button type="button" className="cgm-cancel" onClick={onClose} disabled={loading}>
+            <button type="button" className="cgm-cancel" onClick={handleClose} disabled={loading}>
               Cancelar
             </button>
           </div>

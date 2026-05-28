@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Search, X as XIcon } from 'lucide-react'
-import { fetchCategories, fetchGuides } from '../lib/queries'
+import { fetchCategories, fetchGuides, fetchClientGuideGroups } from '../lib/queries'
 import type { DbCategory, DbGuideWithCategory } from '../types/database'
 import CategoryCard from '../components/CategoryCard'
 import CategoryGuidesOverlay from '../components/CategoryGuidesOverlay'
@@ -21,6 +21,7 @@ export default function SupportHome() {
   const [search, setSearch] = useState('')
   const [showSearch, setShowSearch] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
+  const [clientGuides, setClientGuides] = useState<DbGuideWithCategory[]>([])
 
   useEffect(() => {
     let cancelled = false
@@ -47,6 +48,17 @@ export default function SupportHome() {
     load()
     return () => { cancelled = true }
   }, [])
+
+  useEffect(() => {
+    if (role !== 'client' || !clientData) return
+    let cancelled = false
+    fetchClientGuideGroups(clientData.id)
+      .then((groups) => {
+        if (!cancelled) setClientGuides(groups.flatMap((g) => g.guides))
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [role, clientData])
 
   const activeCategory = useMemo(
     () => categories.find((c) => c.id === activeCategoryId) ?? null,
@@ -161,6 +173,7 @@ export default function SupportHome() {
         <SearchResultsOverlay
           query={search}
           guides={guides}
+          clientGuides={clientGuides.length > 0 ? clientGuides : undefined}
           onClose={() => setShowSearch(false)}
         />
       )}

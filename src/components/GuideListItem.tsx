@@ -5,15 +5,17 @@ import './GuideListItem.css'
 interface GuideListItemProps {
   guide: DbGuideWithCategory
   onClick?: () => void
+  clientRoute?: boolean
 }
 
-export default function GuideListItem({ guide, onClick }: GuideListItemProps) {
+export default function GuideListItem({ guide, onClick, clientRoute }: GuideListItemProps) {
   const tags = guide.tags ?? []
   const readTime = guide.estimated_read_minutes ?? 5
   const hasVideo = guide.video_url != null
+  const to = clientRoute ? `/suporte/guia/${guide.id}` : `/suporte/${guide.slug}`
 
   return (
-    <Link to={`/suporte/${guide.slug}`} className="guide-list-item" onClick={onClick}>
+    <Link to={to} className="guide-list-item" onClick={onClick}>
       <div className="gli-body">
         <div className="gli-meta-top">
           {hasVideo && <span className="gli-video-badge">▶ Vídeo</span>}

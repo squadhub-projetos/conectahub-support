@@ -38,6 +38,12 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
   const [excerpt, setExcerpt] = useState('')
   const [status, setStatus] = useState<'draft' | 'published'>('draft')
 
+  function handleClose() {
+    const dirty = title.trim() !== '' || excerpt.trim() !== ''
+    if (dirty && !window.confirm('Descartar alterações?')) return
+    onClose()
+  }
+
   const [loading, setLoading] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -78,7 +84,7 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
         title: title.trim(),
         slug: slug.trim(),
         category_id: categoryId,
-        excerpt: excerpt.trim() || null,
+        excerpt: excerpt.trim() || `Guia sobre ${title.trim()}`,
         status,
         metadata: {
           support_group: supportGroup,
@@ -100,9 +106,9 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
   }
 
   return (
-    <div className="cgm-backdrop" onClick={onClose}>
-      <div className="cgm-modal" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="cgm-close" onClick={onClose} aria-label="Fechar">
+    <div className="cgm-backdrop">
+      <div className="cgm-modal">
+        <button type="button" className="cgm-close" onClick={handleClose} aria-label="Fechar">
           <X size={18} />
         </button>
 
@@ -219,7 +225,7 @@ export default function CreateGuideModal({ categories, onClose }: CreateGuideMod
             <button type="submit" className="cgm-submit" disabled={loading}>
               {loading ? 'Criando…' : 'Criar e abrir editor →'}
             </button>
-            <button type="button" className="cgm-cancel" onClick={onClose} disabled={loading}>
+            <button type="button" className="cgm-cancel" onClick={handleClose} disabled={loading}>
               Cancelar
             </button>
           </div>

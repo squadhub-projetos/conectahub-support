@@ -120,18 +120,19 @@ function AdminGuideEditInner() {
         const vis = (g.metadata?.visibility as string | undefined) === 'client' ? 'client' : 'general'
         setFVisibility(vis)
         if (vis === 'client') {
+          const metaClientId = typeof g.metadata?.client_id === 'string' ? g.metadata.client_id : null
+          const metaCatId = typeof g.metadata?.client_category_id === 'string' ? g.metadata.client_category_id : null
           const [cls, access] = await Promise.all([fetchClients(), fetchGuideClientAccess(g.id)])
           if (cancelled) return
           setClients(cls)
-          if (access) {
-            setFClientId(access.client_id)
-            setFClientCategoryId(access.client_category_id ?? '')
-            const cats = await fetchClientCategories(access.client_id)
-            if (!cancelled) setClientCategories(cats)
-          } else if (cls.length > 0) {
-            setFClientId(cls[0].id)
-            const cats = await fetchClientCategories(cls[0].id)
-            if (!cancelled) setClientCategories(cats)
+          // Prefer metadata.client_id (source of truth), fallback to access table, fallback to first client
+          const resolvedClientId = metaClientId || access?.client_id || cls[0]?.id || ''
+          const resolvedCatId = metaCatId || access?.client_category_id || ''
+          setFClientId(resolvedClientId)
+          setFClientCategoryId(resolvedCatId)
+          if (resolvedClientId) {
+            const catList = await fetchClientCategories(resolvedClientId)
+            if (!cancelled) setClientCategories(catList)
           }
         }
       } catch (err) {
@@ -146,13 +147,8 @@ function AdminGuideEditInner() {
     return () => { cancelled = true }
   }, [id])
 
-  useEffect(() => {
-    if (fVisibility !== 'client' || clients.length > 0) return
-    fetchClients().then((list) => {
-      setClients(list)
-      if (!fClientId && list.length > 0) setFClientId(list[0].id)
-    }).catch(() => {})
-  }, [fVisibility, clients.length, fClientId])
+  // Clients are loaded in the main load() above; also loaded on-demand when switching to 'client' visibility
+  // (handled in handleVisibilityChange — no separate effect needed, avoids race condition)
 
   useEffect(() => {
     if (!fClientId) { setClientCategories([]); return }
@@ -166,6 +162,13 @@ function AdminGuideEditInner() {
     if (vis === 'client') {
       if (fStatus === 'draft') setFStatus('client_draft')
       else if (fStatus === 'published') setFStatus('client_published')
+      // Load clients on-demand if not loaded yet (e.g. switching a general guide to client)
+      if (clients.length === 0) {
+        fetchClients().then((list) => {
+          setClients(list)
+          if (!fClientId && list.length > 0) setFClientId(list[0].id)
+        }).catch(() => {})
+      }
     } else {
       if (fStatus === 'client_draft') setFStatus('draft')
       else if (fStatus === 'client_published') setFStatus('published')
@@ -245,7 +248,7 @@ function AdminGuideEditInner() {
         title: fTitle.trim() || guide.title,
         slug: fSlug.trim() || guide.slug,
         category_id: isClientGuide ? null : (fCategoryId || guide.category_id),
-        excerpt: fExcerpt.trim() || null,
+        excerpt: fExcerpt.trim() || guide.excerpt || `Guia sobre ${fTitle.trim()}`,
         status: fStatus,
         tags: tagsArray,
         video_url: videoUrlToSave,

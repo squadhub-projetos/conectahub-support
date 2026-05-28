@@ -1,8 +1,9 @@
 import { useState, useEffect, type FormEvent } from 'react'
-import { X, UserPlus, Users, ChevronDown, ChevronRight, Plus, MessageSquare, Trash2 } from 'lucide-react'
+import { X, UserPlus, Users, Plus, MessageSquare, Trash2, GripVertical, Eye, EyeOff } from 'lucide-react'
 import {
-  fetchClients, fetchClientCategories,
+  fetchClients, fetchAllClientCategories,
   addClientCategory, toggleClientCategory,
+  updateClientCategoryOrder, deleteClientCategory,
   fetchGuideRequests, updateGuideRequestStatus,
   listSupportEditors, addSupportEditorByEmail, removeSupportEditor,
   upsertSupportClientByEmail,
@@ -32,7 +33,7 @@ export default function EditorSettingsModal({ onClose }: EditorSettingsModalProp
   }, [onClose])
 
   return (
-    <div className="esm-backdrop" onClick={onClose}>
+    <div className="esm-backdrop">
       <div className="esm-modal" onClick={(e) => e.stopPropagation()}>
         <div className="esm-header">
           <h2 className="esm-title">Configurações de acesso</h2>
@@ -175,11 +176,19 @@ function EditorsTab() {
 
 function ClientsTab() {
   const [clients, setClients] = useState<SupportClient[]>([])
-  const [loading, setLoading] = useState(true)
-  const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [catsByClient, setCatsByClient] = useState<Record<string, SupportClientCategory[]>>({})
-  const [newCatName, setNewCatName] = useState<Record<string, string>>({})
-  const [catLoading, setCatLoading] = useState<Record<string, boolean>>({})
+  const [clientsLoading, setClientsLoading] = useState(true)
+  const [selectedClientId, setSelectedClientId] = useState('')
+
+  const [cats, setCats] = useState<SupportClientCategory[]>([])
+  const [catsLoading, setCatsLoading] = useState(false)
+  const [newCatName, setNewCatName] = useState('')
+  const [catSaving, setCatSaving] = useState(false)
+
+  const [dragCatId, setDragCatId] = useState<string | null>(null)
+  const [dragOverCatId, setDragOverCatId] = useState<string | null>(null)
+
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [showCreate, setShowCreate] = useState(false)
   const [cfEmail, setCfEmail] = useState('')
@@ -190,36 +199,72 @@ function ClientsTab() {
   const [createError, setCreateError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchClients().then((list) => { setClients(list); setLoading(false) }).catch(() => setLoading(false))
+    fetchClients()
+      .then((list) => { setClients(list) })
+      .catch(() => {})
+      .finally(() => setClientsLoading(false))
   }, [])
 
-  async function handleExpand(clientId: string) {
-    if (expandedId === clientId) { setExpandedId(null); return }
-    setExpandedId(clientId)
-    if (!catsByClient[clientId]) {
-      const cats = await fetchClientCategories(clientId).catch(() => [])
-      setCatsByClient((prev) => ({ ...prev, [clientId]: cats }))
-    }
+  useEffect(() => {
+    if (!selectedClientId) { setCats([]); return }
+    let cancelled = false
+    setCatsLoading(true)
+    fetchAllClientCategories(selectedClientId)
+      .then((list) => { if (!cancelled) setCats(list) })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setCatsLoading(false) })
+    return () => { cancelled = true }
+  }, [selectedClientId])
+
+  function handleCatDragStart(e: React.DragEvent, catId: string) {
+    e.dataTransfer.effectAllowed = 'move'
+    setDragCatId(catId)
   }
 
-  async function handleAddCategory(clientId: string) {
-    const name = (newCatName[clientId] ?? '').trim()
-    if (!name) return
-    setCatLoading((p) => ({ ...p, [clientId]: true }))
-    try {
-      const cat = await addClientCategory(clientId, name, slugify(name))
-      setCatsByClient((prev) => ({ ...prev, [clientId]: [...(prev[clientId] ?? []), cat] }))
-      setNewCatName((p) => ({ ...p, [clientId]: '' }))
-    } catch { /* ignore */ }
-    setCatLoading((p) => ({ ...p, [clientId]: false }))
+  function handleCatDragOver(e: React.DragEvent, catId: string) {
+    e.preventDefault()
+    setDragOverCatId(catId)
   }
 
-  async function handleToggleCategory(clientId: string, catId: string, isActive: boolean) {
+  async function handleCatDrop(e: React.DragEvent, targetId: string) {
+    e.preventDefault()
+    if (!dragCatId || dragCatId === targetId) { setDragCatId(null); setDragOverCatId(null); return }
+    const fromIdx = cats.findIndex((c) => c.id === dragCatId)
+    const toIdx = cats.findIndex((c) => c.id === targetId)
+    if (fromIdx === -1 || toIdx === -1) { setDragCatId(null); setDragOverCatId(null); return }
+    const reordered = [...cats]
+    const [moved] = reordered.splice(fromIdx, 1)
+    reordered.splice(toIdx, 0, moved)
+    setCats(reordered)
+    setDragCatId(null)
+    setDragOverCatId(null)
+    await Promise.all(reordered.map((cat, i) => updateClientCategoryOrder(cat.id, i))).catch(() => {})
+  }
+
+  async function handleToggleVisibility(catId: string, isActive: boolean) {
     await toggleClientCategory(catId, !isActive).catch(() => {})
-    setCatsByClient((prev) => ({
-      ...prev,
-      [clientId]: (prev[clientId] ?? []).map((c) => c.id === catId ? { ...c, is_active: !isActive } : c),
-    }))
+    setCats((prev) => prev.map((c) => c.id === catId ? { ...c, is_active: !isActive } : c))
+  }
+
+  async function handleDeleteCat(catId: string) {
+    setDeletingId(catId)
+    try {
+      await deleteClientCategory(catId)
+      setCats((prev) => prev.filter((c) => c.id !== catId))
+    } catch { /* ignore */ }
+    setDeletingId(null)
+    setConfirmDeleteId(null)
+  }
+
+  async function handleAddCat() {
+    if (!newCatName.trim() || !selectedClientId) return
+    setCatSaving(true)
+    try {
+      const cat = await addClientCategory(selectedClientId, newCatName.trim(), slugify(newCatName.trim()))
+      setCats((prev) => [...prev, cat])
+      setNewCatName('')
+    } catch { /* ignore */ }
+    setCatSaving(false)
   }
 
   async function handleCreate(e: FormEvent<HTMLFormElement>) {
@@ -231,9 +276,7 @@ function ClientsTab() {
     setCreating(true); setCreateError(null)
     try {
       const c = await upsertSupportClientByEmail({
-        email,
-        username,
-        display_name: displayName,
+        email, username, display_name: displayName,
         company_name: cfCompany.trim() || undefined,
         slug: slugify(username),
       })
@@ -250,8 +293,11 @@ function ClientsTab() {
     }
   }
 
+  const selectedClient = clients.find((c) => c.id === selectedClientId)
+
   return (
     <section className="esm-section">
+      {/* ── Client selector ── */}
       <div className="esm-section-head">
         <h3 className="esm-section-title">Clientes</h3>
         <button type="button" className="esm-icon-btn" onClick={() => setShowCreate((v) => !v)} aria-label="Novo cliente">
@@ -259,63 +305,24 @@ function ClientsTab() {
         </button>
       </div>
 
-      {loading ? <p className="esm-hint">Carregando…</p> : clients.length === 0 && !showCreate ? (
+      {clientsLoading ? (
+        <p className="esm-hint">Carregando…</p>
+      ) : clients.length === 0 && !showCreate ? (
         <p className="esm-hint">Nenhum cliente cadastrado. Clique em + para criar.</p>
       ) : (
-        <ul className="esm-client-list">
+        <select
+          className="esm-select esm-select--full"
+          value={selectedClientId}
+          onChange={(e) => setSelectedClientId(e.target.value)}
+        >
+          <option value="">Selecione um cliente…</option>
           {clients.map((c) => (
-            <li key={c.id} className="esm-client-item">
-              <button type="button" className="esm-client-row" onClick={() => handleExpand(c.id)}>
-                {expandedId === c.id ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                <span className="esm-client-name">{c.display_name}</span>
-                <span className="esm-client-username">@{c.username}</span>
-                {!c.is_active && <span className="esm-badge-inactive">Inativo</span>}
-              </button>
-              {expandedId === c.id && (
-                <div className="esm-client-cats">
-                  {(catsByClient[c.id] ?? []).length === 0 ? (
-                    <p className="esm-hint esm-hint--indent">Sem categorias.</p>
-                  ) : (
-                    <ul className="esm-cat-list">
-                      {(catsByClient[c.id] ?? []).map((cat) => (
-                        <li key={cat.id} className="esm-cat-item">
-                          <span className={`esm-cat-name${cat.is_active ? '' : ' esm-cat-name--inactive'}`}>{cat.name}</span>
-                          <button
-                            type="button"
-                            className={`esm-toggle-btn${cat.is_active ? '' : ' esm-toggle-btn--off'}`}
-                            onClick={() => handleToggleCategory(c.id, cat.id, cat.is_active)}
-                          >
-                            {cat.is_active ? 'Ativo' : 'Inativo'}
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <div className="esm-add-cat-row">
-                    <input
-                      className="esm-input esm-input--sm"
-                      placeholder="Nova categoria…"
-                      value={newCatName[c.id] ?? ''}
-                      onChange={(e) => setNewCatName((p) => ({ ...p, [c.id]: e.target.value }))}
-                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCategory(c.id) } }}
-                      disabled={catLoading[c.id]}
-                    />
-                    <button
-                      type="button"
-                      className="esm-add-btn esm-add-btn--sm"
-                      onClick={() => handleAddCategory(c.id)}
-                      disabled={catLoading[c.id] || !(newCatName[c.id] ?? '').trim()}
-                    >
-                      {catLoading[c.id] ? '…' : 'Adicionar'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </li>
+            <option key={c.id} value={c.id}>{c.display_name} (@{c.username})</option>
           ))}
-        </ul>
+        </select>
       )}
 
+      {/* ── Create client form ── */}
       {showCreate && (
         <form className="esm-create-client-form" onSubmit={handleCreate}>
           <p className="esm-form-label">Criar / atualizar cliente</p>
@@ -330,6 +337,108 @@ function ClientsTab() {
             <button type="button" className="esm-cancel-btn" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
           </div>
         </form>
+      )}
+
+      {/* ── Categories for selected client ── */}
+      {selectedClientId && (
+        <div className="esm-cats-section">
+          <p className="esm-section-subtitle">
+            Categorias de {selectedClient?.display_name}
+          </p>
+
+          {catsLoading ? (
+            <p className="esm-hint">Carregando categorias…</p>
+          ) : cats.length === 0 ? (
+            <p className="esm-hint esm-hint--indent">Nenhuma categoria ainda.</p>
+          ) : (
+            <ul className="esm-cat-list">
+              {cats.map((cat) => (
+                <li
+                  key={cat.id}
+                  className={[
+                    'esm-cat-item',
+                    dragCatId === cat.id ? 'esm-cat-item--dragging' : '',
+                    dragOverCatId === cat.id ? 'esm-cat-item--dragover' : '',
+                    !cat.is_active ? 'esm-cat-item--hidden' : '',
+                  ].filter(Boolean).join(' ')}
+                  draggable
+                  onDragStart={(e) => handleCatDragStart(e, cat.id)}
+                  onDragOver={(e) => handleCatDragOver(e, cat.id)}
+                  onDrop={(e) => handleCatDrop(e, cat.id)}
+                  onDragEnd={() => { setDragCatId(null); setDragOverCatId(null) }}
+                >
+                  <span className="esm-cat-drag" title="Arrastar para reordenar">
+                    <GripVertical size={13} strokeWidth={2} />
+                  </span>
+                  <span className={`esm-cat-name${cat.is_active ? '' : ' esm-cat-name--inactive'}`}>
+                    {cat.name}
+                  </span>
+                  {!cat.is_active && <span className="esm-badge-hidden">Oculta</span>}
+
+                  {confirmDeleteId === cat.id ? (
+                    <span className="esm-cat-confirm">
+                      <span className="esm-cat-confirm-text">Excluir?</span>
+                      <button
+                        type="button"
+                        className="esm-cat-confirm-yes"
+                        onClick={() => handleDeleteCat(cat.id)}
+                        disabled={deletingId === cat.id}
+                      >
+                        {deletingId === cat.id ? '…' : 'Sim'}
+                      </button>
+                      <button
+                        type="button"
+                        className="esm-cat-confirm-no"
+                        onClick={() => setConfirmDeleteId(null)}
+                      >
+                        Não
+                      </button>
+                    </span>
+                  ) : (
+                    <span className="esm-cat-actions">
+                      <button
+                        type="button"
+                        className={`esm-cat-vis-btn${cat.is_active ? '' : ' esm-cat-vis-btn--off'}`}
+                        onClick={() => handleToggleVisibility(cat.id, cat.is_active)}
+                        title={cat.is_active ? 'Ocultar' : 'Mostrar'}
+                      >
+                        {cat.is_active ? <Eye size={13} strokeWidth={2} /> : <EyeOff size={13} strokeWidth={2} />}
+                        <span>{cat.is_active ? 'Visível' : 'Oculta'}</span>
+                      </button>
+                      <button
+                        type="button"
+                        className="esm-cat-del-btn"
+                        onClick={() => setConfirmDeleteId(cat.id)}
+                        title="Excluir categoria"
+                      >
+                        <Trash2 size={12} strokeWidth={2} />
+                      </button>
+                    </span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="esm-add-cat-row">
+            <input
+              className="esm-input esm-input--sm"
+              placeholder="Nova categoria…"
+              value={newCatName}
+              onChange={(e) => setNewCatName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddCat() } }}
+              disabled={catSaving}
+            />
+            <button
+              type="button"
+              className="esm-add-btn esm-add-btn--sm"
+              onClick={handleAddCat}
+              disabled={catSaving || !newCatName.trim()}
+            >
+              {catSaving ? '…' : 'Adicionar'}
+            </button>
+          </div>
+        </div>
       )}
     </section>
   )

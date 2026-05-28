@@ -95,7 +95,6 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
   return (
     <div
       className={`login-modal-backdrop${isClosing ? ' is-closing' : ''}`}
-      onClick={handleClose}
     >
       <div
         className={`login-modal${isClosing ? ' is-closing' : ''}`}

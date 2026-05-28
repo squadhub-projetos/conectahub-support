@@ -521,6 +521,30 @@ export async function toggleClientCategory(id: string, isActive: boolean): Promi
   if (error) throw error
 }
 
+export async function updateClientCategoryOrder(id: string, orderIndex: number): Promise<void> {
+  const { error } = await supabase
+    .from('support_client_categories')
+    .update({ order_index: orderIndex })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function updateClientCategoryName(id: string, name: string): Promise<void> {
+  const { error } = await supabase
+    .from('support_client_categories')
+    .update({ name })
+    .eq('id', id)
+  if (error) throw error
+}
+
+export async function deleteClientCategory(id: string): Promise<void> {
+  const { error } = await supabase
+    .from('support_client_categories')
+    .delete()
+    .eq('id', id)
+  if (error) throw error
+}
+
 // ── Editor RPCs ───────────────────────────────────────────────────────────────
 
 export type { EditorEntry } from '../types/database'
