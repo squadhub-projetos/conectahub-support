@@ -185,6 +185,27 @@
   flex-shrink: 0;
 }
 
+/* ── Order status bar (editor mode) ── */
+.cgo-order-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 28px;
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.cgo-order-saving {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.cgo-order-error {
+  font-size: 12px;
+  color: #ef4444;
+}
+
 /* ── Content (scrollable) ── */
 .cgo-content {
   flex: 1;

@@ -41,7 +41,7 @@ export function classifyGuide(guide: DbGuideWithCategory): string {
   for (const { sub, pattern } of SUBCATEGORY_PATTERNS) {
     if (pattern.test(text)) return sub
   }
-  return 'Rotina operacional'
+  return 'Outros guias'
 }
 
 export interface SubcategoryGroup {
@@ -69,9 +69,19 @@ export function groupBySubcategory(
     const label =
       (guide.metadata?.support_group_label as string | undefined) ||
       (guide.metadata?.support_group as string | undefined) ||
-      classifyGuide(guide)
+      'Outros guias'
     if (!map.has(label)) map.set(label, [])
     map.get(label)!.push(guide)
+  }
+
+  // Sort guides within each group: order_index asc (null last), then title asc
+  for (const gs of map.values()) {
+    gs.sort((a, b) => {
+      const ai = a.order_index ?? Infinity
+      const bi = b.order_index ?? Infinity
+      if (ai !== bi) return ai - bi
+      return a.title.localeCompare(b.title, 'pt-BR')
+    })
   }
 
   const result: SubcategoryGroup[] = []

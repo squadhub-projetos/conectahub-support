@@ -28,13 +28,11 @@ export async function fetchGuides(): Promise<DbGuideWithCategory[]> {
   const { data, error } = await supabase
     .from('support_guides')
     .select('*, category:support_categories(*)')
+    .not('category_id', 'is', null)
     .eq('status', 'published')
     .order('published_at', { ascending: false })
   if (error) throw error
-  // Filter out client-specific guides for public view
-  return ((data ?? []) as DbGuideWithCategory[]).filter(
-    (g) => (g.metadata?.visibility as string | undefined) !== 'client',
-  )
+  return (data ?? []) as DbGuideWithCategory[]
 }
 
 export async function fetchGuideBySlug(slug: string): Promise<DbGuideWithCategory | null> {
@@ -70,10 +68,35 @@ export async function fetchAllGuides(): Promise<DbGuideWithCategory[]> {
   const { data, error } = await supabase
     .from('support_guides')
     .select('*, category:support_categories(*)')
-    .not('metadata->>visibility', 'eq', 'client')
+    .not('category_id', 'is', null)
+    .in('status', ['published', 'draft'])
     .order('updated_at', { ascending: false })
   if (error) throw error
   return (data ?? []) as DbGuideWithCategory[]
+}
+
+export async function fetchGeneralGuidesByCategory(
+  categoryId: string,
+  isEditor: boolean,
+): Promise<DbGuideWithCategory[]> {
+  const statusFilter = isEditor ? ['published', 'draft'] : ['published']
+  const { data, error } = await supabase
+    .from('support_guides')
+    .select('*, category:support_categories(*)')
+    .eq('category_id', categoryId)
+    .in('status', statusFilter)
+    .order('order_index', { ascending: true, nullsFirst: false })
+    .order('title', { ascending: true })
+  if (error) throw error
+  return (data ?? []) as DbGuideWithCategory[]
+}
+
+export async function updateGeneralGuideOrder(orderedGuideIds: string[]): Promise<void> {
+  await Promise.all(
+    orderedGuideIds.map((id, index) =>
+      supabase.from('support_guides').update({ order_index: index }).eq('id', id),
+    ),
+  )
 }
 
 export async function fetchGuideById(id: string): Promise<DbGuideWithCategory | null> {

@@ -109,6 +109,42 @@
   border-color: rgba(239, 68, 68, 0.3);
 }
 
+/* Order controls — shown only in sortable contexts (general category overlay) */
+.egi-order-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.egi-btn--order {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.egi-btn--order:hover:not(:disabled) {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+  border-color: var(--accent);
+}
+
+.egi-btn--order:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+}
+
 .egi-client-badge {
   font-size: 10px;
   font-weight: 700;

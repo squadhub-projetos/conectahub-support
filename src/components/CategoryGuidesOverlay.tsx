@@ -5,6 +5,7 @@ import CategoryIcon from './CategoryIcon'
 import GuideListItem from './GuideListItem'
 import EditorGuideItem from './EditorGuideItem'
 import { groupBySubcategory } from '../utils/subcategoryGrouping'
+import { fetchGeneralGuidesByCategory, updateGeneralGuideOrder } from '../lib/queries'
 import './CategoryGuidesOverlay.css'
 
 interface CategoryGuidesOverlayProps {
@@ -23,6 +24,9 @@ export default function CategoryGuidesOverlay({
   onDeleteGuide,
 }: CategoryGuidesOverlayProps) {
   const [search, setSearch] = useState('')
+  const [localGuides, setLocalGuides] = useState<DbGuideWithCategory[]>(guides)
+  const [savingOrder, setSavingOrder] = useState(false)
+  const [orderError, setOrderError] = useState<string | null>(null)
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -37,18 +41,71 @@ export default function CategoryGuidesOverlay({
     return () => { document.body.style.overflow = '' }
   }, [])
 
+  // In editor mode, fetch guides fresh so order_index values are up to date.
+  // In public mode, use props directly.
+  useEffect(() => {
+    if (mode !== 'editor') {
+      setLocalGuides(guides)
+      return
+    }
+    let cancelled = false
+    fetchGeneralGuidesByCategory(category.id, true)
+      .then((fresh) => { if (!cancelled) setLocalGuides(fresh) })
+      .catch(() => { /* keep initial props on error */ })
+    return () => { cancelled = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category.id, mode])
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return guides
+    if (!search.trim()) return localGuides
     const q = search.toLowerCase()
-    return guides.filter(
+    return localGuides.filter(
       (g) =>
         g.title.toLowerCase().includes(q) ||
         (g.excerpt ?? '').toLowerCase().includes(q) ||
         (g.tags ?? []).some((t) => t.toLowerCase().includes(q))
     )
-  }, [guides, search])
+  }, [localGuides, search])
 
   const groups = useMemo(() => groupBySubcategory(filtered, category.slug), [filtered, category.slug])
+
+  async function handleMove(
+    guide: DbGuideWithCategory,
+    groupName: string,
+    direction: 'up' | 'down',
+  ) {
+    const group = groups.find((g) => g.name === groupName)
+    if (!group) return
+    const idx = group.guides.findIndex((g) => g.id === guide.id)
+    if (direction === 'up' && idx === 0) return
+    if (direction === 'down' && idx === group.guides.length - 1) return
+
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    const newGroupGuides = [...group.guides]
+    ;[newGroupGuides[idx], newGroupGuides[swapIdx]] = [newGroupGuides[swapIdx], newGroupGuides[idx]]
+    const orderedIds = newGroupGuides.map((g) => g.id)
+
+    // Optimistic update: reassign order_index for the affected group's guides
+    const snapshot = localGuides
+    setLocalGuides((prev) =>
+      prev.map((g) => {
+        const newIdx = orderedIds.indexOf(g.id)
+        if (newIdx === -1) return g
+        return { ...g, order_index: newIdx }
+      }),
+    )
+
+    setSavingOrder(true)
+    setOrderError(null)
+    try {
+      await updateGeneralGuideOrder(orderedIds)
+    } catch {
+      setOrderError('Erro ao salvar a ordem. Revertendo.')
+      setLocalGuides(snapshot)
+    } finally {
+      setSavingOrder(false)
+    }
+  }
 
   return (
     <div className="cgo-backdrop" onClick={onClose}>
@@ -100,6 +157,14 @@ export default function CategoryGuidesOverlay({
           </span>
         </div>
 
+        {/* ── Order status feedback (editor only) ── */}
+        {mode === 'editor' && (savingOrder || orderError) && (
+          <div className="cgo-order-status">
+            {savingOrder && <span className="cgo-order-saving">Salvando ordem…</span>}
+            {orderError && <span className="cgo-order-error">{orderError}</span>}
+          </div>
+        )}
+
         {/* ── Content ── */}
         <div className="cgo-content">
           {groups.length === 0 ? (
@@ -120,9 +185,17 @@ export default function CategoryGuidesOverlay({
                   </span>
                 </div>
                 <div className="cgo-guide-list">
-                  {group.guides.map((guide) =>
+                  {group.guides.map((guide, idx) =>
                     mode === 'editor' ? (
-                      <EditorGuideItem key={guide.id} guide={guide} onDeleteRequest={onDeleteGuide} />
+                      <EditorGuideItem
+                        key={guide.id}
+                        guide={guide}
+                        onDeleteRequest={onDeleteGuide}
+                        onMoveUp={() => handleMove(guide, group.name, 'up')}
+                        onMoveDown={() => handleMove(guide, group.name, 'down')}
+                        isFirst={idx === 0}
+                        isLast={idx === group.guides.length - 1}
+                      />
                     ) : (
                       <GuideListItem key={guide.id} guide={guide} onClick={onClose} />
                     )
