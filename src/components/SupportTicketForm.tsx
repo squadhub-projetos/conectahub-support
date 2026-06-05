@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import { Headphones, CheckCircle2 } from 'lucide-react'
 import { submitSupportTicket } from '../lib/queries'
+import type { SupportTicketCategory, SupportTicketPriority } from '../lib/queries'
+import { getReadableError } from '../utils/getReadableError'
 import './SupportTicketForm.css'
 
-const CATEGORIES = [
+const CATEGORIES: SupportTicketCategory[] = [
   'Erro na plataforma',
   'Dúvida operacional',
   'Configuração',
@@ -13,11 +15,11 @@ const CATEGORIES = [
   'Outro',
 ]
 
-const PRIORITIES = [
-  { value: 'baixa', label: 'Baixa' },
-  { value: 'media', label: 'Média' },
-  { value: 'alta', label: 'Alta' },
-  { value: 'urgente', label: 'Urgente' },
+const PRIORITIES: { value: SupportTicketPriority; label: string }[] = [
+  { value: 'Baixa', label: 'Baixa' },
+  { value: 'Média', label: 'Média' },
+  { value: 'Alta', label: 'Alta' },
+  { value: 'Urgente', label: 'Urgente' },
 ]
 
 export default function SupportTicketForm() {
@@ -26,8 +28,8 @@ export default function SupportTicketForm() {
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
   const [subject, setSubject] = useState('')
-  const [category, setCategory] = useState('')
-  const [priority, setPriority] = useState('')
+  const [category, setCategory] = useState<SupportTicketCategory | ''>('')
+  const [priority, setPriority] = useState<SupportTicketPriority | ''>('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
@@ -37,7 +39,7 @@ export default function SupportTicketForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!isValid) return
+    if (!isValid || !category || !priority) return
     setLoading(true)
     setError(null)
     try {
@@ -54,8 +56,7 @@ export default function SupportTicketForm() {
       setName(''); setEmail(''); setCompany(''); setSubject('')
       setCategory(''); setPriority(''); setDescription('')
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Erro ao enviar. Tente novamente.'
-      setError(msg)
+      setError(getReadableError(err))
     } finally {
       setLoading(false)
     }
@@ -137,14 +138,14 @@ export default function SupportTicketForm() {
                 <div className="stf-row">
                   <div className="stf-group">
                     <label className="stf-label" htmlFor="stf-category">Categoria do problema <span className="stf-req">*</span></label>
-                    <select id="stf-category" className="stf-select" value={category} onChange={e => setCategory(e.target.value)} required>
+                    <select id="stf-category" className="stf-select" value={category} onChange={e => setCategory(e.target.value as SupportTicketCategory)} required>
                       <option value="">Selecione…</option>
                       {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div className="stf-group">
                     <label className="stf-label" htmlFor="stf-priority">Prioridade <span className="stf-req">*</span></label>
-                    <select id="stf-priority" className="stf-select" value={priority} onChange={e => setPriority(e.target.value)} required>
+                    <select id="stf-priority" className="stf-select" value={priority} onChange={e => setPriority(e.target.value as SupportTicketPriority)} required>
                       <option value="">Selecione…</option>
                       {PRIORITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </select>

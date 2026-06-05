@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { fetchGuideBySlug, fetchRelatedGuides, checkClientGuideAccess } from '../lib/queries'
+import { fetchGeneralGuideBySlug, fetchRelatedGuides } from '../lib/queries'
 import type { DbGuideWithCategory } from '../types/database'
 import GuideContent from '../components/GuideContent'
 import VideoEmbed from '../components/VideoEmbed'
@@ -10,14 +10,13 @@ import './GuidePage.css'
 export default function GuidePage() {
   const { slug } = useParams<{ slug: string }>()
   const navigate = useNavigate()
-  const { role, clientData } = useAuth()
+  const { role } = useAuth()
 
   const [guide, setGuide] = useState<DbGuideWithCategory | null>(null)
   const [related, setRelated] = useState<DbGuideWithCategory[]>([])
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [error, setError] = useState(false)
-  const [accessDenied, setAccessDenied] = useState(false)
   const [showBack, setShowBack] = useState(false)
 
   useEffect(() => {
@@ -25,37 +24,22 @@ export default function GuidePage() {
     if (role === 'loading') return
     let cancelled = false
     const currentSlug = slug
+    const isEditor = role === 'editor'
 
     async function load() {
       try {
         setLoading(true)
         setNotFound(false)
         setError(false)
-        setAccessDenied(false)
 
-        const found = await fetchGuideBySlug(currentSlug)
+        // fetchGeneralGuideBySlug only returns guides with category_id set (never client guides)
+        const found = await fetchGeneralGuideBySlug(currentSlug, isEditor)
 
         if (cancelled) return
 
         if (!found) {
           setNotFound(true)
           return
-        }
-
-        const isClientGuide = (found.metadata?.visibility as string | undefined) === 'client'
-
-        if (isClientGuide) {
-          if (role === 'none') {
-            setAccessDenied(true)
-            return
-          }
-          if (role === 'client') {
-            if (!clientData) { setAccessDenied(true); return }
-            const allowed = await checkClientGuideAccess(found.id, clientData.id)
-            if (cancelled) return
-            if (!allowed) { setAccessDenied(true); return }
-          }
-          // role === 'editor' → full access
         }
 
         setGuide(found)
@@ -76,7 +60,7 @@ export default function GuidePage() {
 
     load()
     return () => { cancelled = true }
-  }, [slug, role, clientData])
+  }, [slug, role])
 
   useEffect(() => {
     const onScroll = () => setShowBack(window.scrollY > 280)
@@ -101,27 +85,6 @@ export default function GuidePage() {
             <div className="guide-layout">
               <div className="guide-skeleton guide-skeleton--article" />
               <div className="guide-skeleton guide-skeleton--sidebar" />
-            </div>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  if (accessDenied) {
-    return (
-      <div className="guide-page">
-        <div className="guide-page-inner">
-          <div className="guide-not-found">
-            <span className="not-found-icon">🔒</span>
-            <h1 className="not-found-title">Acesso restrito</h1>
-            <p className="not-found-desc">
-              Este guia é exclusivo para clientes autorizados. Faça login com sua conta para acessá-lo.
-            </p>
-            <div className="not-found-actions">
-              <Link to="/suporte" className="not-found-btn not-found-btn--primary">
-                ← Voltar à central
-              </Link>
             </div>
           </div>
         </div>

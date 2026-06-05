@@ -1,0 +1,505 @@
+{
+  "name": "Supabase Forms → Monday Help Desk ConectaHub",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "supabase-ticket",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "node-webhook",
+      "name": "Webhook Supabase",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [240, 300],
+      "webhookId": "supabase-ticket-webhook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// CONFIG — preencha aqui ou use variáveis de ambiente do n8n\n// ─────────────────────────────────────────────────────────────────────────────\nconst CONFIG = {\n  mondayApiKey: $env.MONDAY_API_KEY || 'COLE_AQUI_SUA_CHAVE_DA_MONDAY',\n  boardId: 18411840245,\n  defaultGroupId: 'topics',\n  prioritizedGroupId: 'priorizado',\n  backlogGroupId: 'backlog',\n  doneGroupId: 'concluido',\n};\n\n// ─────────────────────────────────────────────────────────────────────────────\n// Normalizar payload do Supabase Database Webhook\n// O body pode vir como body.record, body.new, ou body direto\n// ─────────────────────────────────────────────────────────────────────────────\nconst body = $input.first().json.body || $input.first().json;\nconst ticket = body.record || body.new || body;\n\nif (!ticket || !ticket.id) {\n  throw new Error('Payload inválido: campo id não encontrado. Body recebido: ' + JSON.stringify(body));\n}\n\n// Verificar idempotência: se já foi sincronizado, não criar novamente\nif (ticket.monday_item_id) {\n  return [{\n    json: {\n      __skip: true,\n      reason: 'Ticket já sincronizado com Monday',\n      supabase_id: ticket.id,\n      monday_item_id: ticket.monday_item_id,\n    }\n  }];\n}\n\n// ─────────────────────────────────────────────────────────────────────────────\n// Mapeamento de categoria → tipo Monday\n// ─────────────────────────────────────────────────────────────────────────────\nconst CATEGORY_MAP = {\n  'Erro na plataforma': 'Bug',\n  'Dúvida operacional': 'Doubt',\n  'Configuração': 'Configuration',\n  'Integração': 'Integration',\n  'Automação': 'Automation',\n  'Pagamentos': 'Payments',\n  'Outro': 'Other',\n  'Solicitação de guia': 'Guide',\n};\n\n// ─────────────────────────────────────────────────────────────────────────────\n// Mapeamento de prioridade → label Monday\n// ─────────────────────────────────────────────────────────────────────────────\nconst PRIORITY_MAP = {\n  'Urgente': 'P0',\n  'Alta': 'P1',\n  'Média': 'P2',\n  'Baixa': 'P3',\n};\n\n// Definir grupo com base na prioridade\nfunction chooseGroup(priority) {\n  if (priority === 'Urgente' || priority === 'Alta') return CONFIG.prioritizedGroupId;\n  return CONFIG.defaultGroupId;\n}\n\nconst isGuideRequest = ticket.category === 'Solicitação de guia';\n\nreturn [{\n  json: {\n    CONFIG,\n    ticket: {\n      id: ticket.id,\n      name: ticket.name || '',\n      email: ticket.email || '',\n      company: ticket.company || '',\n      subject: ticket.subject || ticket.topic || 'Sem assunto',\n      category: ticket.category || 'Outro',\n      priority: ticket.priority || 'Baixa',\n      description: ticket.description || '',\n      status: ticket.status || 'novo',\n      created_at: ticket.created_at || new Date().toISOString(),\n    },\n    mappedCategory: CATEGORY_MAP[ticket.category] || ticket.category || 'Other',\n    mappedPriority: PRIORITY_MAP[ticket.priority] || ticket.priority || 'P3',\n    groupId: isGuideRequest ? CONFIG.backlogGroupId : chooseGroup(ticket.priority),\n    itemName: isGuideRequest\n      ? 'Solicitação de guia: ' + (ticket.subject || ticket.topic || 'Sem assunto')\n      : (ticket.subject || ticket.topic || 'Novo ticket'),\n    isGuideRequest,\n  }\n}];"
+      },
+      "id": "node-prepare",
+      "name": "Preparar payload e CONFIG",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [480, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "skip-check",
+              "leftValue": "={{ $json.__skip }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "node-skip-check",
+      "name": "Já sincronizado?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [720, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.monday.com/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "API-Version",
+              "value": "2024-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "query ($boardId: [ID!]) { boards(ids: $boardId) { id name groups { id title } columns { id title type settings_str } } }"
+            },
+            {
+              "name": "variables",
+              "value": "={{ JSON.stringify({ boardId: String($node[\"Preparar payload e CONFIG\"].json.CONFIG.boardId) }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-board-structure",
+      "name": "Monday - Buscar estrutura do board",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [960, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "monday-api-auth",
+          "name": "Monday API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// ─────────────────────────────────────────────────────────────────────────────\n// Tipos de colunas NÃO editáveis via API — NUNCA incluir em column_values\n// ─────────────────────────────────────────────────────────────────────────────\nconst NON_EDITABLE_TYPES = new Set([\n  'pulse-log',      // PulseLogColumn — causa o erro reportado\n  'formula',\n  'mirror',\n  'dependency',\n  'board-relation',\n  'lookup',\n  'auto-number',\n  'creation-log',\n  'last-updated',\n  'button',\n  'item-id',\n  'progress',\n  'subitems',\n]);\n\n// Nomes de colunas que indicam não-editável mesmo se o tipo não estiver na lista\nconst NON_EDITABLE_TITLE_PATTERNS = [\n  /^atuali[zs]a[cç][aã]o/i,\n  /^updates?$/i,\n  /^log$/i,\n  /^comentários?$/i,\n  /^activity/i,\n  /^pulse.?log/i,\n];\n\nfunction isNonEditable(col) {\n  if (NON_EDITABLE_TYPES.has(col.type)) return true;\n  return NON_EDITABLE_TITLE_PATTERNS.some(p => p.test(col.title));\n}\n\n// ─────────────────────────────────────────────────────────────────────────────\n// Dados vindos dos nodes anteriores\n// ─────────────────────────────────────────────────────────────────────────────\nconst prepareData = $node['Preparar payload e CONFIG'].json;\nconst { CONFIG, ticket, mappedCategory, mappedPriority, groupId, itemName } = prepareData;\n\nconst boardResponse = $input.first().json;\nconst errors = boardResponse.errors;\nif (errors && errors.length > 0) {\n  throw new Error('Monday API retornou erro ao buscar estrutura: ' + JSON.stringify(errors));\n}\n\nconst board = boardResponse.data?.boards?.[0];\nif (!board) {\n  throw new Error('Board ' + CONFIG.boardId + ' não encontrado na Monday API.');\n}\n\nconst columns = board.columns || [];\nconst editableColumns = columns.filter(c => !isNonEditable(c));\n\n// ─────────────────────────────────────────────────────────────────────────────\n// Utilitário: encontra coluna pelo título (case-insensitive, parcial)\n// ─────────────────────────────────────────────────────────────────────────────\nfunction findColumn(searchTitle) {\n  const q = searchTitle.toLowerCase();\n  return editableColumns.find(c =>\n    c.title.toLowerCase() === q ||\n    c.title.toLowerCase().includes(q) ||\n    q.includes(c.title.toLowerCase())\n  );\n}\n\n// ─────────────────────────────────────────────────────────────────────────────\n// Montar column_values apenas com colunas editáveis encontradas\n// ─────────────────────────────────────────────────────────────────────────────\nconst columnValues = {};\n\n// Solicitante / Nome\nconst colName = findColumn('Solicitante Forms') || findColumn('Solicitante') || findColumn('Nome');\nif (colName && ticket.name) {\n  columnValues[colName.id] = ticket.name;\n}\n\n// E-mail\nconst colEmail = findColumn('E-mail solicitante') || findColumn('E-mail') || findColumn('email');\nif (colEmail && ticket.email) {\n  if (colEmail.type === 'email') {\n    columnValues[colEmail.id] = { email: ticket.email, text: ticket.email };\n  } else {\n    columnValues[colEmail.id] = ticket.email;\n  }\n}\n\n// Empresa\nconst colCompany = findColumn('Empresa Solicita') || findColumn('Empresa') || findColumn('company');\nif (colCompany && ticket.company) {\n  columnValues[colCompany.id] = ticket.company;\n}\n\n// Assunto\nconst colSubject = findColumn('Assunto Solicitaç') || findColumn('Assunto') || findColumn('subject');\nif (colSubject && ticket.subject) {\n  columnValues[colSubject.id] = ticket.subject;\n}\n\n// Tipo / Categoria\nconst colType = findColumn('Tipo') || findColumn('type');\nif (colType && mappedCategory) {\n  columnValues[colType.id] = { label: mappedCategory };\n}\n\n// Prioridade\nconst colPriority = findColumn('Priority') || findColumn('Prioridade');\nif (colPriority && mappedPriority) {\n  columnValues[colPriority.id] = { label: mappedPriority };\n}\n\n// Status inicial\nconst colStatus = findColumn('Status');\nif (colStatus) {\n  columnValues[colStatus.id] = { label: 'Need Info' };\n}\n\n// Project Status\nconst colProjectStatus = findColumn('Project Status');\nif (colProjectStatus) {\n  columnValues[colProjectStatus.id] = { label: 'Em Entrada' };\n}\n\n// Cliente (se existir)\nconst colClient = findColumn('Cliente');\nif (colClient && ticket.company) {\n  columnValues[colClient.id] = ticket.company;\n}\n\n// Log de colunas encontradas (para debug)\nconst columnLog = {\n  total: columns.length,\n  editable: editableColumns.length,\n  skipped: columns.filter(c => isNonEditable(c)).map(c => ({ id: c.id, title: c.title, type: c.type })),\n  mapped: Object.keys(columnValues),\n};\n\nreturn [{\n  json: {\n    CONFIG,\n    ticket,\n    groupId,\n    itemName,\n    columnValues,\n    columnLog,\n    boardId: CONFIG.boardId,\n  }\n}];"
+      },
+      "id": "node-build-item",
+      "name": "Montar item Monday",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1200, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.monday.com/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "API-Version",
+              "value": "2024-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "mutation ($boardId: ID!, $groupId: String!, $itemName: String!, $columnValues: JSON!) { create_item(board_id: $boardId, group_id: $groupId, item_name: $itemName, column_values: $columnValues) { id name } }"
+            },
+            {
+              "name": "variables",
+              "value": "={{ JSON.stringify({ boardId: String($json.boardId), groupId: $json.groupId, itemName: $json.itemName, columnValues: JSON.stringify($json.columnValues) }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-create-item",
+      "name": "Monday - Criar item",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1440, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "monday-api-auth",
+          "name": "Monday API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const response = $input.first().json;\nconst errors = response.errors;\n\nif (errors && errors.length > 0) {\n  // Montar mensagem de erro legível\n  const readableErrors = errors.map(e => {\n    const parts = [];\n    if (e.message) parts.push(e.message);\n    if (e.extensions?.code) parts.push('code: ' + e.extensions.code);\n    if (e.extensions?.column_type) parts.push('column_type: ' + e.extensions.column_type);\n    if (e.extensions?.column_id) parts.push('column_id: ' + e.extensions.column_id);\n    if (e.path) parts.push('path: ' + e.path.join('.'));\n    return parts.join(' | ');\n  }).join('\\n');\n  \n  throw new Error('Monday create_item falhou:\\n' + readableErrors);\n}\n\nconst item = response.data?.create_item;\nif (!item || !item.id) {\n  throw new Error('Monday create_item não retornou item válido: ' + JSON.stringify(response));\n}\n\n// Dados do node anterior\nconst buildData = $node['Montar item Monday'].json;\n\nreturn [{\n  json: {\n    monday_item_id: item.id,\n    monday_item_name: item.name,\n    ticket: buildData.ticket,\n    CONFIG: buildData.CONFIG,\n  }\n}];"
+      },
+      "id": "node-validate-creation",
+      "name": "Validar criação",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 200]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.monday.com/v2",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "API-Version",
+              "value": "2024-01"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": [
+          {
+            "name": "query",
+            "value": "mutation ($itemId: ID!, $body: String!) { create_update(item_id: $itemId, body: $body) { id } }"
+          },
+          {
+            "name": "variables",
+            "value": "={{ JSON.stringify({ itemId: String($json.monday_item_id), body: '<b>Nova solicitação recebida pela Central de Suporte</b>\\n\\n<b>Nome:</b> ' + $json.ticket.name + '\\n<b>E-mail:</b> ' + $json.ticket.email + '\\n<b>Empresa:</b> ' + ($json.ticket.company || '—') + '\\n<b>Categoria:</b> ' + $json.ticket.category + '\\n<b>Prioridade:</b> ' + $json.ticket.priority + '\\n<b>Assunto:</b> ' + $json.ticket.subject + '\\n\\n<b>Descrição:</b>\\n' + $json.ticket.description + '\\n\\n<b>ID Supabase:</b> ' + $json.ticket.id + '\\n<b>Criado em:</b> ' + $json.ticket.created_at }) }}"
+          }
+        ],
+        "options": {}
+      },
+      "id": "node-add-update",
+      "name": "Monday - Adicionar descrição como update",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 200],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "monday-api-auth",
+          "name": "Monday API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $node['Preparar payload e CONFIG'].json.CONFIG.supabaseUrl || $env.SUPABASE_URL }}/rest/v1/support_tickets?id=eq.{{ $node['Preparar payload e CONFIG'].json.ticket.id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $node['Preparar payload e CONFIG'].json.CONFIG.supabaseKey || $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $node['Preparar payload e CONFIG'].json.CONFIG.supabaseKey || $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "monday_item_id",
+              "value": "={{ $node['Validar criação'].json.monday_item_id }}"
+            },
+            {
+              "name": "monday_sync_status",
+              "value": "synced"
+            },
+            {
+              "name": "monday_sync_error",
+              "value": ""
+            },
+            {
+              "name": "monday_synced_at",
+              "value": "={{ new Date().toISOString() }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-update-supabase",
+      "name": "Atualizar Supabase - sincronizado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [2160, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, supabase_id: $node['Preparar payload e CONFIG'].json.ticket.id, monday_item_id: $node['Validar criação'].json.monday_item_id }) }}",
+        "options": {}
+      },
+      "id": "node-response-success",
+      "name": "Resposta - Sucesso",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2400, 200]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ success: true, supabase_id: $node['Preparar payload e CONFIG'].json.ticket?.id, monday_item_id: $node['Preparar payload e CONFIG'].json.ticket?.monday_item_id, message: 'Ticket já sincronizado anteriormente' }) }}",
+        "options": {}
+      },
+      "id": "node-response-already-synced",
+      "name": "Resposta - Já sincronizado",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [960, 420]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Handler de erro global\nconst errorMessage = $input.first()?.error?.message || $input.first()?.json?.error || 'Erro desconhecido';\nconst ticketId = $node['Preparar payload e CONFIG']?.json?.ticket?.id;\n\nconsole.error('[n8n Monday Sync] Erro:', errorMessage, 'ticket_id:', ticketId);\n\n// Tentar atualizar Supabase com status de erro\nreturn [{\n  json: {\n    __error: true,\n    error_message: errorMessage,\n    ticket_id: ticketId,\n    CONFIG: $node['Preparar payload e CONFIG']?.json?.CONFIG,\n  }\n}];"
+      },
+      "id": "node-error-handler",
+      "name": "Tratar erro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1680, 420]
+    },
+    {
+      "parameters": {
+        "method": "PATCH",
+        "url": "={{ $json.CONFIG?.supabaseUrl || $env.SUPABASE_URL }}/rest/v1/support_tickets?id=eq.{{ $json.ticket_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "={{ $json.CONFIG?.supabaseKey || $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.CONFIG?.supabaseKey || $env.SUPABASE_SERVICE_KEY }}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "monday_sync_status",
+              "value": "error"
+            },
+            {
+              "name": "monday_sync_error",
+              "value": "={{ $json.error_message }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "node-supabase-error",
+      "name": "Atualizar Supabase - erro",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1920, 420]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseCode": 500,
+        "responseBody": "={{ JSON.stringify({ success: false, supabase_id: $node['Tratar erro'].json.ticket_id, error: $node['Tratar erro'].json.error_message }) }}",
+        "options": {}
+      },
+      "id": "node-response-error",
+      "name": "Resposta - Erro",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [2160, 420]
+    }
+  ],
+  "connections": {
+    "Webhook Supabase": {
+      "main": [
+        [
+          {
+            "node": "Preparar payload e CONFIG",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar payload e CONFIG": {
+      "main": [
+        [
+          {
+            "node": "Já sincronizado?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Já sincronizado?": {
+      "main": [
+        [
+          {
+            "node": "Resposta - Já sincronizado",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Monday - Buscar estrutura do board",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monday - Buscar estrutura do board": {
+      "main": [
+        [
+          {
+            "node": "Montar item Monday",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Montar item Monday": {
+      "main": [
+        [
+          {
+            "node": "Monday - Criar item",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monday - Criar item": {
+      "main": [
+        [
+          {
+            "node": "Validar criação",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Validar criação": {
+      "main": [
+        [
+          {
+            "node": "Monday - Adicionar descrição como update",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monday - Adicionar descrição como update": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Supabase - sincronizado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Supabase - sincronizado": {
+      "main": [
+        [
+          {
+            "node": "Resposta - Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tratar erro": {
+      "main": [
+        [
+          {
+            "node": "Atualizar Supabase - erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Atualizar Supabase - erro": {
+      "main": [
+        [
+          {
+            "node": "Resposta - Erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    { "createdAt": "2026-06-05T00:00:00.000Z", "updatedAt": "2026-06-05T00:00:00.000Z", "id": "supabase-monday", "name": "supabase-monday" }
+  ],
+  "triggerCount": 1,
+  "updatedAt": "2026-06-05T00:00:00.000Z",
+  "versionId": "1"
+}

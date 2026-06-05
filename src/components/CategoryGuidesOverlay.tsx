@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from 'react'
-import { X, Search } from 'lucide-react'
+import { X, Search, Loader2 } from 'lucide-react'
 import type { DbCategory, DbGuideWithCategory } from '../types/database'
 import CategoryIcon from './CategoryIcon'
 import GuideListItem from './GuideListItem'
@@ -10,6 +10,7 @@ import './CategoryGuidesOverlay.css'
 
 interface CategoryGuidesOverlayProps {
   category: DbCategory
+  /** Passed as initial/fallback data; fresh data is always fetched from DB on open. */
   guides: DbGuideWithCategory[]
   onClose: () => void
   mode?: 'editor'
@@ -18,13 +19,16 @@ interface CategoryGuidesOverlayProps {
 
 export default function CategoryGuidesOverlay({
   category,
-  guides,
+  guides: initialGuides,
   onClose,
   mode,
   onDeleteGuide,
 }: CategoryGuidesOverlayProps) {
+  const isEditor = mode === 'editor'
+
   const [search, setSearch] = useState('')
-  const [localGuides, setLocalGuides] = useState<DbGuideWithCategory[]>(guides)
+  const [localGuides, setLocalGuides] = useState<DbGuideWithCategory[]>(initialGuides)
+  const [fetchLoading, setFetchLoading] = useState(true)
   const [savingOrder, setSavingOrder] = useState(false)
   const [orderError, setOrderError] = useState<string | null>(null)
 
@@ -41,20 +45,17 @@ export default function CategoryGuidesOverlay({
     return () => { document.body.style.overflow = '' }
   }, [])
 
-  // In editor mode, fetch guides fresh so order_index values are up to date.
-  // In public mode, use props directly.
+  // Always fetch fresh from DB when the overlay opens or category changes.
+  // isEditor controls whether drafts are included.
   useEffect(() => {
-    if (mode !== 'editor') {
-      setLocalGuides(guides)
-      return
-    }
     let cancelled = false
-    fetchGeneralGuidesByCategory(category.id, true)
+    setFetchLoading(true)
+    fetchGeneralGuidesByCategory(category.id, isEditor)
       .then((fresh) => { if (!cancelled) setLocalGuides(fresh) })
-      .catch(() => { /* keep initial props on error */ })
+      .catch(() => { /* keep initialGuides on error */ })
+      .finally(() => { if (!cancelled) setFetchLoading(false) })
     return () => { cancelled = true }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category.id, mode])
+  }, [category.id, isEditor])
 
   const filtered = useMemo(() => {
     if (!search.trim()) return localGuides
@@ -85,7 +86,6 @@ export default function CategoryGuidesOverlay({
     ;[newGroupGuides[idx], newGroupGuides[swapIdx]] = [newGroupGuides[swapIdx], newGroupGuides[idx]]
     const orderedIds = newGroupGuides.map((g) => g.id)
 
-    // Optimistic update: reassign order_index for the affected group's guides
     const snapshot = localGuides
     setLocalGuides((prev) =>
       prev.map((g) => {
@@ -105,6 +105,11 @@ export default function CategoryGuidesOverlay({
     } finally {
       setSavingOrder(false)
     }
+  }
+
+  function handleDelete(guide: DbGuideWithCategory) {
+    setLocalGuides((prev) => prev.filter((g) => g.id !== guide.id))
+    onDeleteGuide?.(guide)
   }
 
   return (
@@ -152,13 +157,15 @@ export default function CategoryGuidesOverlay({
               </button>
             )}
           </div>
-          <span className="cgo-guide-count">
-            {filtered.length} guia{filtered.length !== 1 ? 's' : ''}
-          </span>
+          {!fetchLoading && (
+            <span className="cgo-guide-count">
+              {filtered.length} guia{filtered.length !== 1 ? 's' : ''}
+            </span>
+          )}
         </div>
 
         {/* ── Order status feedback (editor only) ── */}
-        {mode === 'editor' && (savingOrder || orderError) && (
+        {isEditor && (savingOrder || orderError) && (
           <div className="cgo-order-status">
             {savingOrder && <span className="cgo-order-saving">Salvando ordem…</span>}
             {orderError && <span className="cgo-order-error">{orderError}</span>}
@@ -167,13 +174,24 @@ export default function CategoryGuidesOverlay({
 
         {/* ── Content ── */}
         <div className="cgo-content">
-          {groups.length === 0 ? (
+          {fetchLoading ? (
+            <div className="cgo-loading">
+              <Loader2 size={22} className="cgo-loading-icon" />
+              <p>Carregando guias…</p>
+            </div>
+          ) : groups.length === 0 ? (
             <div className="cgo-empty">
               <span className="cgo-empty-icon">🔍</span>
-              <p className="cgo-empty-title">Nenhum guia encontrado para essa busca.</p>
-              <p className="cgo-empty-hint">
-                Tente buscar por outro termo ou navegue pelas categorias.
+              <p className="cgo-empty-title">
+                {search.trim()
+                  ? 'Nenhum guia encontrado para essa busca.'
+                  : 'Nenhum guia disponível nessa categoria.'}
               </p>
+              {search.trim() && (
+                <p className="cgo-empty-hint">
+                  Tente buscar por outro termo ou navegue pelas categorias.
+                </p>
+              )}
             </div>
           ) : (
             groups.map((group) => (
@@ -186,11 +204,11 @@ export default function CategoryGuidesOverlay({
                 </div>
                 <div className="cgo-guide-list">
                   {group.guides.map((guide, idx) =>
-                    mode === 'editor' ? (
+                    isEditor ? (
                       <EditorGuideItem
                         key={guide.id}
                         guide={guide}
-                        onDeleteRequest={onDeleteGuide}
+                        onDeleteRequest={handleDelete}
                         onMoveUp={() => handleMove(guide, group.name, 'up')}
                         onMoveDown={() => handleMove(guide, group.name, 'down')}
                         isFirst={idx === 0}

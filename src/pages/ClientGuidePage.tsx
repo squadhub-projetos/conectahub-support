@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { fetchGuideById } from '../lib/queries'
+import { fetchGuideById, checkClientGuideAccess } from '../lib/queries'
 import type { DbGuideWithCategory } from '../types/database'
 import GuideContent from '../components/GuideContent'
 import VideoEmbed from '../components/VideoEmbed'
@@ -39,27 +39,45 @@ export default function ClientGuidePage() {
           return
         }
 
-        const isClientGuide = (found.metadata?.visibility as string | undefined) === 'client'
-        const isPublished = found.status === 'client_published' || found.status === 'published'
+        // A client guide has no category_id and a client_* status.
+        // If this guide is actually a general guide, redirect to its slug route.
+        const isClientGuide =
+          found.category_id === null &&
+          (found.status === 'client_published' || found.status === 'client_draft')
 
-        if (isClientGuide) {
-          if (role === 'none') { setAccessDenied(true); return }
-          if (role === 'editor') {
-            // Editors can see all statuses — redirect to admin preview for full context
-            if (!cancelled) navigate(`/admin/guides/${found.id}/preview`, { replace: true })
-            return
-          }
-          if (role === 'client') {
-            if (!clientData) { setAccessDenied(true); return }
-            // Validate by metadata.client_id to avoid RLS issues on the access table
-            const metaClientId = typeof found.metadata?.client_id === 'string' ? found.metadata.client_id : null
-            if (import.meta.env.DEV) console.log('[support] ClientGuidePage access check metaClientId:', metaClientId, 'clientData.id:', clientData.id)
-            if (metaClientId !== clientData.id) { setAccessDenied(true); return }
-            if (!isPublished) { setNotFound(true); return }
-          }
-        } else {
-          // General guide accessed via /suporte/guia/:id — redirect to slug route
+        if (!isClientGuide) {
           if (!cancelled) navigate(`/suporte/${found.slug}`, { replace: true })
+          return
+        }
+
+        if (role === 'none') {
+          setAccessDenied(true)
+          return
+        }
+
+        if (role === 'editor') {
+          // Editors always redirect to admin preview for full context
+          if (!cancelled) navigate(`/admin/guides/${found.id}/preview`, { replace: true })
+          return
+        }
+
+        // role === 'client'
+        if (!clientData) {
+          setAccessDenied(true)
+          return
+        }
+
+        // Validate via support_guide_client_access table
+        const allowed = await checkClientGuideAccess(found.id, clientData.id)
+        if (cancelled) return
+        if (!allowed) {
+          setAccessDenied(true)
+          return
+        }
+
+        // Client can only see published guides
+        if (found.status !== 'client_published') {
+          setNotFound(true)
           return
         }
 
@@ -68,7 +86,7 @@ export default function ClientGuidePage() {
       } catch (err) {
         if (!cancelled) {
           setError(true)
-          console.error(err)
+          console.error('[ClientGuidePage]', err)
         }
       } finally {
         if (!cancelled) setLoading(false)
@@ -190,9 +208,6 @@ export default function ClientGuidePage() {
           <article className="guide-article">
             <header className="guide-article-header">
               <div className="guide-meta-top">
-                {guide.category && (
-                  <span className="guide-cat-label">{guide.category.name}</span>
-                )}
                 {hasVideo && <span className="guide-video-label">▶ Contém vídeo</span>}
               </div>
 

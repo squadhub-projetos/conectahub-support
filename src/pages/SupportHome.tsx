@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Search, X as XIcon } from 'lucide-react'
 import { fetchCategories, fetchGuides, fetchClientGuideGroups } from '../lib/queries'
 import type { DbCategory, DbGuideWithCategory } from '../types/database'
@@ -8,6 +8,7 @@ import SearchResultsOverlay from '../components/SearchResultsOverlay'
 import SupportRequestForm from '../components/SupportRequestForm'
 import SupportTicketForm from '../components/SupportTicketForm'
 import ClientArea from '../components/ClientArea'
+import EditorClientArea from '../components/EditorClientArea'
 import { useAuth } from '../contexts/AuthContext'
 import './SupportHome.css'
 
@@ -22,6 +23,8 @@ export default function SupportHome() {
   const [showSearch, setShowSearch] = useState(false)
   const [activeCategoryId, setActiveCategoryId] = useState<string | null>(null)
   const [clientGuides, setClientGuides] = useState<DbGuideWithCategory[]>([])
+
+  const isEditor = role === 'editor'
 
   useEffect(() => {
     let cancelled = false
@@ -70,6 +73,11 @@ export default function SupportHome() {
     [guides, activeCategoryId]
   )
 
+  // When editor deletes a guide from the overlay, remove it from local state
+  const handleDeleteGuide = useCallback((guide: DbGuideWithCategory) => {
+    setGuides((prev) => prev.filter((g) => g.id !== guide.id))
+  }, [])
+
   function handleSearchChange(e: React.ChangeEvent<HTMLInputElement>) {
     const val = e.target.value
     setSearch(val)
@@ -113,6 +121,10 @@ export default function SupportHome() {
 
         {role === 'client' && clientData && (
           <ClientArea clientData={clientData} />
+        )}
+
+        {role === 'editor' && (
+          <EditorClientArea />
         )}
 
         {error ? (
@@ -166,6 +178,8 @@ export default function SupportHome() {
           category={activeCategory}
           guides={categoryGuides}
           onClose={() => setActiveCategoryId(null)}
+          mode={isEditor ? 'editor' : undefined}
+          onDeleteGuide={isEditor ? handleDeleteGuide : undefined}
         />
       )}
 

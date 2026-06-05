@@ -35,13 +35,31 @@ export async function fetchGuides(): Promise<DbGuideWithCategory[]> {
   return (data ?? []) as DbGuideWithCategory[]
 }
 
+/** Fetch a general guide by slug. Only returns guides with category_id set (never client guides). */
 export async function fetchGuideBySlug(slug: string): Promise<DbGuideWithCategory | null> {
   const { data, error } = await supabase
     .from('support_guides')
     .select('*, category:support_categories(*)')
     .eq('slug', slug)
+    .not('category_id', 'is', null)
     .eq('status', 'published')
-    .not('metadata->>visibility', 'eq', 'client')
+    .maybeSingle()
+  if (error) throw error
+  return data as DbGuideWithCategory | null
+}
+
+/** Fetch a general guide by slug with editor-aware status filtering. */
+export async function fetchGeneralGuideBySlug(
+  slug: string,
+  isEditor: boolean,
+): Promise<DbGuideWithCategory | null> {
+  const statusFilter = isEditor ? ['published', 'draft'] : ['published']
+  const { data, error } = await supabase
+    .from('support_guides')
+    .select('*, category:support_categories(*)')
+    .eq('slug', slug)
+    .not('category_id', 'is', null)
+    .in('status', statusFilter)
     .maybeSingle()
   if (error) throw error
   return data as DbGuideWithCategory | null
@@ -75,6 +93,10 @@ export async function fetchAllGuides(): Promise<DbGuideWithCategory[]> {
   return (data ?? []) as DbGuideWithCategory[]
 }
 
+/**
+ * Fetch general guides for a category. Ordering: order_index asc (null last), then title asc.
+ * Grouping by support_group is done in JS (groupBySubcategory). Never filters by client access.
+ */
 export async function fetchGeneralGuidesByCategory(
   categoryId: string,
   isEditor: boolean,
@@ -107,6 +129,50 @@ export async function fetchGuideById(id: string): Promise<DbGuideWithCategory | 
     .maybeSingle()
   if (error) throw error
   return data as DbGuideWithCategory | null
+}
+
+/**
+ * Fetch a client guide by ID, validating access via support_guide_client_access.
+ * Editors bypass the access check.
+ */
+export async function fetchClientGuideById(
+  guideId: string,
+  clientId: string,
+  isEditor: boolean,
+): Promise<DbGuideWithCategory | null> {
+  const statusFilter = isEditor
+    ? ['client_published', 'client_draft']
+    : ['client_published']
+
+  const { data: guide, error: guideError } = await supabase
+    .from('support_guides')
+    .select('*, category:support_categories(*)')
+    .eq('id', guideId)
+    .in('status', statusFilter)
+    .maybeSingle()
+
+  if (guideError) {
+    if (import.meta.env.DEV) console.error('[fetchClientGuideById] guide error:', guideError)
+    throw guideError
+  }
+  if (!guide) return null
+
+  if (!isEditor) {
+    const { data: access, error: accessError } = await supabase
+      .from('support_guide_client_access')
+      .select('id')
+      .eq('guide_id', guideId)
+      .eq('client_id', clientId)
+      .maybeSingle()
+
+    if (accessError) {
+      if (import.meta.env.DEV) console.error('[fetchClientGuideById] access error:', accessError)
+      return null
+    }
+    if (!access) return null
+  }
+
+  return guide as DbGuideWithCategory
 }
 
 export interface CreateGuideInput {
@@ -236,29 +302,50 @@ export async function submitSupportRequest(input: SupportRequestInput): Promise<
 
 // ── Support Tickets ───────────────────────────────────────────────────────────
 
+export type SupportTicketCategory =
+  | 'Erro na plataforma'
+  | 'Dúvida operacional'
+  | 'Configuração'
+  | 'Integração'
+  | 'Automação'
+  | 'Pagamentos'
+  | 'Outro'
+
+export type SupportTicketPriority = 'Baixa' | 'Média' | 'Alta' | 'Urgente'
+
 export interface SupportTicketInput {
   name: string
   email: string
   company?: string
   subject: string
-  category: string
-  priority: string
+  category: SupportTicketCategory
+  priority: SupportTicketPriority
   description: string
 }
 
 export async function submitSupportTicket(input: SupportTicketInput): Promise<void> {
-  const { error } = await supabase
-    .from('support_tickets')
-    .insert({
-      name: input.name,
-      email: input.email,
-      company: input.company || null,
-      subject: input.subject,
-      category: input.category,
-      priority: input.priority,
-      description: input.description,
+  const payload = {
+    name: input.name,
+    email: input.email,
+    company: input.company || null,
+    subject: input.subject,
+    category: input.category,
+    priority: input.priority,
+    description: input.description,
+    status: 'novo',
+  }
+
+  const { error } = await supabase.from('support_tickets').insert(payload)
+
+  if (error) {
+    console.error('[submitSupportTicket] insert error:', {
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      payload,
     })
-  if (error) throw error
+    throw error
+  }
 }
 
 export async function updateGuide(id: string, input: UpdateGuideInput): Promise<DbGuide> {
@@ -355,18 +442,20 @@ export async function fetchAllClientCategories(
   return (data ?? []) as SupportClientCategory[]
 }
 
+/**
+ * Fetch client guides for a logged-in client. Uses support_guide_client_access as source of truth.
+ * Returns groups ordered by client category order_index, guides ordered by access order_index.
+ */
 export async function fetchClientGuideGroups(clientId: string): Promise<ClientGuideGroup[]> {
   if (!clientId) return []
   if (import.meta.env.DEV) console.log('[support] fetchClientGuideGroups clientId:', clientId)
-  // Query support_guides directly by metadata to avoid RLS join issues on access table
-  const [guidesResult, catsResult] = await Promise.all([
+
+  const [accessResult, catsResult] = await Promise.all([
     supabase
-      .from('support_guides')
-      .select('*, category:support_categories(*)')
-      .eq('metadata->>client_id', clientId)
-      .eq('metadata->>visibility', 'client')
-      .in('status', ['client_published', 'published'])
-      .order('updated_at', { ascending: false }),
+      .from('support_guide_client_access')
+      .select('guide_id, client_category_id, order_index')
+      .eq('client_id', clientId)
+      .order('order_index', { ascending: true, nullsFirst: false }),
     supabase
       .from('support_client_categories')
       .select('*')
@@ -375,30 +464,58 @@ export async function fetchClientGuideGroups(clientId: string): Promise<ClientGu
       .order('order_index'),
   ])
 
-  if (import.meta.env.DEV) console.log('[support] client guides result:', guidesResult.data?.length, 'error:', guidesResult.error)
-  if (guidesResult.error) throw guidesResult.error
-  // Categories failure is non-fatal — degrade to ungrouped view
-  const guides = (guidesResult.data ?? []) as DbGuideWithCategory[]
-  const categories = catsResult.error ? [] : (catsResult.data ?? []) as SupportClientCategory[]
+  if (accessResult.error) {
+    if (import.meta.env.DEV) console.error('[fetchClientGuideGroups] access error:', accessResult.error)
+    throw accessResult.error
+  }
+
+  const accessRows = accessResult.data ?? []
+  const guideIds = accessRows.map((r) => r.guide_id)
+
+  if (import.meta.env.DEV) console.log('[support] access rows:', accessRows.length, 'guide IDs:', guideIds.length)
+
+  const guides: DbGuideWithCategory[] = []
+
+  if (guideIds.length > 0) {
+    const { data: guidesData, error: guidesError } = await supabase
+      .from('support_guides')
+      .select('*, category:support_categories(*)')
+      .in('id', guideIds)
+      .eq('status', 'client_published')
+
+    if (guidesError) {
+      if (import.meta.env.DEV) console.error('[fetchClientGuideGroups] guides error:', guidesError)
+      throw guidesError
+    }
+    guides.push(...((guidesData ?? []) as DbGuideWithCategory[]))
+  }
+
+  if (import.meta.env.DEV) console.log('[support] published client guides found:', guides.length)
+
+  const categories = catsResult.error ? [] : ((catsResult.data ?? []) as SupportClientCategory[])
   const categoryIds = new Set(categories.map((c) => c.id))
+
+  // Build lookup: guide_id → access row
+  const accessMap = new Map(accessRows.map((r) => [r.guide_id, r]))
+
+  // Sort guides by access order_index, then title
+  const sortedGuides = [...guides].sort((a, b) => {
+    const oa = accessMap.get(a.id)?.order_index ?? Infinity
+    const ob = accessMap.get(b.id)?.order_index ?? Infinity
+    if (oa !== ob) return oa - ob
+    return a.title.localeCompare(b.title, 'pt-BR')
+  })
 
   const groups: ClientGuideGroup[] = categories
     .map((cat) => ({
       category: cat,
-      guides: guides.filter((g) => {
-        const clientCatId = typeof g.metadata?.client_category_id === 'string'
-          ? g.metadata.client_category_id
-          : null
-        return clientCatId === cat.id
-      }),
+      guides: sortedGuides.filter((g) => accessMap.get(g.id)?.client_category_id === cat.id),
     }))
     .filter((group) => group.guides.length > 0)
 
-  const uncategorized = guides.filter((g) => {
-    const clientCatId = typeof g.metadata?.client_category_id === 'string'
-      ? g.metadata.client_category_id
-      : null
-    return !clientCatId || !categoryIds.has(clientCatId)
+  const uncategorized = sortedGuides.filter((g) => {
+    const catId = accessMap.get(g.id)?.client_category_id
+    return !catId || !categoryIds.has(catId)
   })
 
   if (uncategorized.length > 0) {
@@ -408,13 +525,17 @@ export async function fetchClientGuideGroups(clientId: string): Promise<ClientGu
   return groups
 }
 
+/**
+ * Fetch client guides for the editor view. Uses support_guide_client_access as source of truth.
+ * Includes both client_published and client_draft statuses.
+ */
 export async function fetchClientGuidesForEditor(clientId: string): Promise<EditorClientGuideGroup[]> {
-  const [guidesResult, catsResult] = await Promise.all([
+  const [accessResult, catsResult] = await Promise.all([
     supabase
-      .from('support_guides')
-      .select('*, category:support_categories(*)')
-      .eq('metadata->>client_id', clientId)
-      .order('updated_at', { ascending: false }),
+      .from('support_guide_client_access')
+      .select('guide_id, client_category_id, order_index')
+      .eq('client_id', clientId)
+      .order('order_index', { ascending: true, nullsFirst: false }),
     supabase
       .from('support_client_categories')
       .select('*')
@@ -422,28 +543,37 @@ export async function fetchClientGuidesForEditor(clientId: string): Promise<Edit
       .order('order_index'),
   ])
 
-  if (guidesResult.error) throw guidesResult.error
+  if (accessResult.error) throw accessResult.error
   if (catsResult.error) throw catsResult.error
 
-  const guides = (guidesResult.data ?? []) as DbGuideWithCategory[]
+  const accessRows = accessResult.data ?? []
+  const guideIds = accessRows.map((r) => r.guide_id)
+
+  const guides: DbGuideWithCategory[] = []
+
+  if (guideIds.length > 0) {
+    const { data: guidesData, error: guidesError } = await supabase
+      .from('support_guides')
+      .select('*, category:support_categories(*)')
+      .in('id', guideIds)
+      .in('status', ['client_published', 'client_draft'])
+
+    if (guidesError) throw guidesError
+    guides.push(...((guidesData ?? []) as DbGuideWithCategory[]))
+  }
+
   const categories = (catsResult.data ?? []) as SupportClientCategory[]
   const categoryIds = new Set(categories.map((c) => c.id))
+  const accessMap = new Map(accessRows.map((r) => [r.guide_id, r]))
 
   const groups: EditorClientGuideGroup[] = categories.map((cat) => ({
     category: cat,
-    guides: guides.filter((g) => {
-      const clientCatId = typeof g.metadata?.client_category_id === 'string'
-        ? g.metadata.client_category_id
-        : null
-      return clientCatId === cat.id
-    }),
+    guides: guides.filter((g) => accessMap.get(g.id)?.client_category_id === cat.id),
   }))
 
   const uncategorized = guides.filter((g) => {
-    const clientCatId = typeof g.metadata?.client_category_id === 'string'
-      ? g.metadata.client_category_id
-      : null
-    return !clientCatId || !categoryIds.has(clientCatId)
+    const catId = accessMap.get(g.id)?.client_category_id
+    return !catId || !categoryIds.has(catId)
   })
 
   if (uncategorized.length > 0) {
