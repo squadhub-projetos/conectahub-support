@@ -40,31 +40,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    if (import.meta.env.DEV) console.log('[support] resolveRole for', currentUser.id, currentUser.email)
+    console.log('[auth] resolveRole — user.id:', currentUser.id, '| email:', currentUser.email)
 
+    // ── 1. Check editor via direct query on support_editors ──────────────────
     try {
-      const { data: editorRole } = await supabase.rpc('get_my_support_editor_role')
-      if (editorRole === 'owner' || editorRole === 'editor') {
+      const { data: editorData, error: editorErr } = await supabase
+        .from('support_editors')
+        .select('user_id, role')
+        .eq('user_id', currentUser.id)
+        .maybeSingle()
+
+      console.log('[auth] support_editors result:', editorData, '| error:', editorErr)
+
+      if (!editorErr && editorData && ['editor', 'admin', 'owner'].includes(editorData.role)) {
         setRole('editor')
         setClientData(null)
         return
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      console.warn('[auth] support_editors query threw:', e)
+    }
 
+    // ── 2. Check client via auth_user_id ─────────────────────────────────────
     try {
-      const { data: clientRec } = await supabase.rpc('get_my_support_client')
-      if (import.meta.env.DEV) console.log('[support] get_my_support_client raw:', clientRec)
-      // RPC may return a single object or a one-element array depending on Supabase version
-      const rec: unknown = Array.isArray(clientRec) ? (clientRec as unknown[])[0] : clientRec
-      if (rec && typeof rec === 'object' && 'id' in (rec as object)) {
-        if (import.meta.env.DEV) console.log('[support] resolved client via RPC:', (rec as SupportClientData).id)
+      const { data: clientRec, error: clientErr } = await supabase
+        .from('support_clients')
+        .select('*')
+        .eq('auth_user_id', currentUser.id)
+        .eq('is_active', true)
+        .maybeSingle()
+
+      console.log('[auth] support_clients (auth_user_id) result:', clientRec, '| error:', clientErr)
+
+      if (!clientErr && clientRec && typeof clientRec === 'object' && 'id' in clientRec) {
         setRole('client')
-        setClientData(rec as SupportClientData)
+        setClientData(clientRec as SupportClientData)
         return
       }
-    } catch { /* ignore */ }
+    } catch (e) {
+      console.warn('[auth] support_clients (auth_user_id) query threw:', e)
+    }
 
-    // Fallback: direct query by login_email (handles records where auth_user_id is not linked)
+    // ── 3. Fallback: check client by login_email ──────────────────────────────
     if (currentUser.email) {
       try {
         const { data: clientByEmail, error: emailErr } = await supabase
@@ -73,13 +90,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           .eq('login_email', currentUser.email)
           .eq('is_active', true)
           .maybeSingle()
-        if (import.meta.env.DEV) console.log('[support] fallback by login_email:', clientByEmail, emailErr)
-        if (clientByEmail && typeof clientByEmail === 'object' && 'id' in (clientByEmail as object)) {
+
+        console.log('[auth] support_clients (login_email) result:', clientByEmail, '| error:', emailErr)
+
+        if (!emailErr && clientByEmail && typeof clientByEmail === 'object' && 'id' in clientByEmail) {
           setRole('client')
-          setClientData(clientByEmail as unknown as SupportClientData)
+          setClientData(clientByEmail as SupportClientData)
           return
         }
-      } catch { /* ignore */ }
+      } catch (e) {
+        console.warn('[auth] support_clients (login_email) query threw:', e)
+      }
     }
 
     setRole('none')
@@ -94,6 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [resolveRole])
 
   useEffect(() => {
+    // Resolve role on initial load
     supabase.auth.getSession().then(({ data: { session } }) => {
       const u = session?.user ?? null
       setUser(u)
@@ -105,8 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(null)
         setRole('none')
         setClientData(null)
-      } else if (event === 'SIGNED_IN') {
-        setUser(session?.user ?? null)
+      } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        const u = session?.user ?? null
+        setUser(u)
+        resolveRole(u)
       }
     })
 

@@ -1,6 +1,7 @@
 import { useState, useCallback, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
+import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import './EditorLoginModal.css'
@@ -36,15 +37,43 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
           ? raw
           : `${raw.toLowerCase()}@clientes.conectahub.local`
 
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error || !data.user) {
-          setErrorMsg('Usuário ou senha inválidos.')
+        // ── Step 1: Authenticate ─────────────────────────────────────────────
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        })
+
+        if (authError) {
+          console.warn('[login] auth error:', authError.message)
+          setErrorMsg('E-mail ou senha inválidos.')
           return
         }
 
-        // Check editor role
-        const { data: editorRole, error: editorErr } = await supabase.rpc('get_my_support_editor_role')
-        if (!editorErr && (editorRole === 'owner' || editorRole === 'editor')) {
+        // Use user from response; fall back to getUser() if not present
+        let user: User | null = authData?.user ?? null
+        if (!user) {
+          const { data: { user: fetched } } = await supabase.auth.getUser()
+          user = fetched ?? null
+        }
+
+        if (!user) {
+          setErrorMsg('E-mail ou senha inválidos.')
+          return
+        }
+
+        console.log('[login] user.id:', user.id)
+        console.log('[login] user.email:', user.email)
+
+        // ── Step 2: Check editor via support_editors ─────────────────────────
+        const { data: editorData, error: editorErr } = await supabase
+          .from('support_editors')
+          .select('user_id, role')
+          .eq('user_id', user.id)
+          .maybeSingle()
+
+        console.log('[login] support_editors result:', editorData, '| error:', editorErr)
+
+        if (!editorErr && editorData && ['editor', 'admin', 'owner'].includes(editorData.role)) {
           await refreshRole()
           setPassword('')
           setIsClosing(true)
@@ -52,10 +81,17 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
           return
         }
 
-        // Check client role via RPC (may return single object or one-element array)
-        const { data: clientRec, error: clientErr } = await supabase.rpc('get_my_support_client')
-        const clientRecNorm: unknown = Array.isArray(clientRec) ? (clientRec as unknown[])[0] : clientRec
-        if (!clientErr && clientRecNorm && typeof clientRecNorm === 'object' && 'id' in (clientRecNorm as object)) {
+        // ── Step 3: Check client via auth_user_id ────────────────────────────
+        const { data: clientRec, error: clientErr } = await supabase
+          .from('support_clients')
+          .select('*')
+          .eq('auth_user_id', user.id)
+          .eq('is_active', true)
+          .maybeSingle()
+
+        console.log('[login] support_clients (auth_user_id) result:', clientRec, '| error:', clientErr)
+
+        if (!clientErr && clientRec && typeof clientRec === 'object' && 'id' in clientRec) {
           await refreshRole()
           setPassword('')
           setIsClosing(true)
@@ -63,15 +99,18 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
           return
         }
 
-        // Fallback: direct query by login_email (handles unlinked auth_user_id)
-        if (data.user.email) {
-          const { data: clientByEmail } = await supabase
+        // ── Step 4: Fallback — check client by login_email ───────────────────
+        if (user.email) {
+          const { data: clientByEmail, error: emailErr } = await supabase
             .from('support_clients')
             .select('id')
-            .eq('login_email', data.user.email)
+            .eq('login_email', user.email)
             .eq('is_active', true)
             .maybeSingle()
-          if (clientByEmail) {
+
+          console.log('[login] support_clients (login_email) result:', clientByEmail, '| error:', emailErr)
+
+          if (!emailErr && clientByEmail && typeof clientByEmail === 'object' && 'id' in clientByEmail) {
             await refreshRole()
             setPassword('')
             setIsClosing(true)
@@ -80,10 +119,12 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
           }
         }
 
-        // Neither editor nor client
+        // ── Step 5: Neither editor nor client ────────────────────────────────
+        console.warn('[login] user is not editor or client — signing out')
         await supabase.auth.signOut()
         setErrorMsg('Acesso negado. Usuário não autorizado.')
-      } catch {
+      } catch (err) {
+        console.error('[login] unexpected error:', err)
         setErrorMsg('Ocorreu um erro inesperado. Tente novamente.')
       } finally {
         setLoading(false)
