@@ -698,6 +698,64 @@ export async function deleteClientCategory(id: string): Promise<void> {
   if (error) throw error
 }
 
+// ── Login identifier resolver ────────────────────────────────────────────────
+
+export interface ResolvedSupportLogin {
+  login_email: string
+  account_type: string | null
+  display_name: string | null
+}
+
+/**
+ * Resolve a username or email to a canonical login_email using the
+ * resolve_support_login_identifier RPC (SECURITY DEFINER — bypasses anon RLS).
+ *
+ * The RPC is defined as RETURNS TABLE, so Supabase-js always returns the result
+ * as an array even when there is only one row. This function normalises that.
+ *
+ * Returns null when the identifier is not found (caller should show
+ * "Usuário não encontrado.").
+ * Throws when the RPC itself errors (caller should show a generic error).
+ */
+export async function resolveSupportLoginIdentifier(
+  identifier: string,
+): Promise<ResolvedSupportLogin | null> {
+  const normalized = identifier.trim().toLowerCase()
+  if (!normalized) return null
+
+  console.log('[login resolver] identifier:', normalized)
+
+  const { data, error } = await supabase.rpc('resolve_support_login_identifier', {
+    p_identifier: normalized,
+  })
+
+  console.log('[login resolver] raw data:', data)
+  console.log('[login resolver] raw error:', error)
+
+  if (error) {
+    console.error('[login resolver] RPC error:', error)
+    throw error
+  }
+
+  // RETURNS TABLE → Supabase-js wraps the result in an array.
+  // Do NOT access data.login_email directly without normalising first.
+  const result: unknown = Array.isArray(data) ? (data as unknown[])[0] : data
+
+  console.log('[login resolver] normalized result:', result)
+
+  if (!result || typeof result !== 'object') return null
+
+  const rec = result as Record<string, unknown>
+  const loginEmail = typeof rec.login_email === 'string' ? rec.login_email.trim().toLowerCase() : ''
+  if (!loginEmail) return null
+
+  return {
+    login_email: loginEmail,
+    account_type: typeof rec.account_type === 'string' ? rec.account_type : null,
+    display_name: typeof rec.display_name === 'string' ? rec.display_name : null,
+  }
+}
+
 // ── Editor RPCs ───────────────────────────────────────────────────────────────
 
 export type { EditorEntry } from '../types/database'

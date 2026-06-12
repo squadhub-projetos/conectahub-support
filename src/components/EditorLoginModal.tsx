@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { X } from 'lucide-react'
 import type { User } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
+import { resolveSupportLoginIdentifier } from '../lib/queries'
 import { useAuth } from '../contexts/AuthContext'
 import './EditorLoginModal.css'
 
@@ -31,25 +32,47 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
       setErrorMsg(null)
 
       try {
-        // Build login email: if no "@", treat as username and construct technical email
-        const raw = identifier.trim()
-        const email = raw.includes('@')
-          ? raw
-          : `${raw.toLowerCase()}@clientes.conectahub.local`
+        const normalizedIdentifier = identifier.trim().toLowerCase()
 
-        // ── Step 1: Authenticate ─────────────────────────────────────────────
+        console.log('[login] identifier original:', identifier)
+        console.log('[login] identifier normalizado:', normalizedIdentifier)
+
+        // ── Step 0: Resolve identifier → login_email via RPC ─────────────────
+        // Always use the RPC — it handles both usernames and emails.
+        // Never construct a fake email or skip the RPC for "@" identifiers.
+        let resolved
+        try {
+          resolved = await resolveSupportLoginIdentifier(normalizedIdentifier)
+        } catch {
+          setErrorMsg('Erro ao consultar o usuário. Verifique a configuração de acesso.')
+          return
+        }
+
+        if (!resolved?.login_email) {
+          setErrorMsg('Usuário não encontrado.')
+          return
+        }
+
+        const resolvedEmail = resolved.login_email.trim().toLowerCase()
+
+        console.log('[login] resolved account:', resolved)
+        console.log('[login] e-mail final usado no Auth:', resolvedEmail)
+
+        // ── Step 1: Authenticate with the resolved email ─────────────────────
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
+          email: resolvedEmail,
           password,
         })
 
+        console.log('[login] auth user:', authData?.user ?? null)
+        console.log('[login] auth error:', authError ?? null)
+
         if (authError) {
-          console.warn('[login] auth error:', authError.message)
           setErrorMsg('E-mail ou senha inválidos.')
           return
         }
 
-        // Use user from response; fall back to getUser() if not present
+        // Use user from response; fall back to getUser() if unexpectedly absent
         let user: User | null = authData?.user ?? null
         if (!user) {
           const { data: { user: fetched } } = await supabase.auth.getUser()
@@ -100,15 +123,17 @@ export default function EditorLoginModal({ onClose }: EditorLoginModalProps) {
         }
 
         // ── Step 4: Fallback — check client by login_email ───────────────────
-        if (user.email) {
+        // Use the resolved email (reliable) rather than user.email which may differ.
+        const emailForFallback = resolvedEmail || user.email
+        if (emailForFallback) {
           const { data: clientByEmail, error: emailErr } = await supabase
             .from('support_clients')
             .select('id')
-            .eq('login_email', user.email)
+            .eq('login_email', emailForFallback)
             .eq('is_active', true)
             .maybeSingle()
 
-          console.log('[login] support_clients (login_email) result:', clientByEmail, '| error:', emailErr)
+          console.log('[login] support_clients (login_email fallback) result:', clientByEmail, '| error:', emailErr)
 
           if (!emailErr && clientByEmail && typeof clientByEmail === 'object' && 'id' in clientByEmail) {
             await refreshRole()

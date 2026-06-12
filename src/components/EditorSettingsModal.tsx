@@ -5,9 +5,9 @@ import {
   addClientCategory, toggleClientCategory,
   updateClientCategoryOrder, deleteClientCategory,
   fetchGuideRequests, updateGuideRequestStatus,
-  listSupportEditors, addSupportEditorByEmail, removeSupportEditor,
-  upsertSupportClientByEmail,
+  listSupportEditors, removeSupportEditor,
 } from '../lib/queries'
+import { provisionClient, provisionEditor } from '../lib/accountProvisioning'
 import type { EditorEntry, SupportClient, SupportClientCategory, SupportGuideRequest } from '../types/database'
 import { getReadableError } from '../utils/getReadableError'
 import './EditorSettingsModal.css'
@@ -100,7 +100,7 @@ function EditorsTab() {
     if (!newEmail.trim()) return
     setAddLoading(true); setAddError(null); setAddSuccess(false)
     try {
-      await addSupportEditorByEmail(newEmail.trim(), newRole)
+      await provisionEditor({ email: newEmail.trim(), role: newRole })
       setAddSuccess(true)
       setNewEmail('')
       listSupportEditors().then(setEditors).catch(() => {})
@@ -165,7 +165,7 @@ function EditorsTab() {
           </select>
           <button type="submit" className="esm-add-btn" disabled={addLoading || !newEmail.trim()}>{addLoading ? '…' : 'Adicionar'}</button>
         </div>
-        {addSuccess && <p className="esm-success">Editor adicionado!</p>}
+        {addSuccess && <p className="esm-success">Convite enviado! O editor receberá um e-mail para definir a senha.</p>}
         {addError && <p className="esm-warn">{addError}</p>}
       </form>
     </section>
@@ -197,6 +197,7 @@ function ClientsTab() {
   const [cfCompany, setCfCompany] = useState('')
   const [creating, setCreating] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [createSuccess, setCreateSuccess] = useState(false)
 
   useEffect(() => {
     fetchClients()
@@ -273,19 +274,17 @@ function ClientsTab() {
     const username = cfUsername.trim()
     const displayName = cfDisplay.trim()
     if (!email || !username || !displayName) { setCreateError('E-mail, usuário e nome são obrigatórios.'); return }
-    setCreating(true); setCreateError(null)
+    setCreating(true); setCreateError(null); setCreateSuccess(false)
     try {
-      const c = await upsertSupportClientByEmail({
-        email, username, display_name: displayName,
-        company_name: cfCompany.trim() || undefined,
-        slug: slugify(username),
+      await provisionClient({
+        email,
+        username,
+        displayName,
+        company: cfCompany.trim() || undefined,
       })
-      setClients((prev) => {
-        const exists = prev.find((x) => x.id === c.id)
-        return exists ? prev.map((x) => x.id === c.id ? c : x) : [...prev, c]
-      })
+      setCreateSuccess(true)
       setCfEmail(''); setCfUsername(''); setCfDisplay(''); setCfCompany('')
-      setShowCreate(false)
+      fetchClients().then(setClients).catch(() => {})
     } catch (err: unknown) {
       setCreateError(getReadableError(err))
     } finally {
@@ -300,7 +299,12 @@ function ClientsTab() {
       {/* ── Client selector ── */}
       <div className="esm-section-head">
         <h3 className="esm-section-title">Clientes</h3>
-        <button type="button" className="esm-icon-btn" onClick={() => setShowCreate((v) => !v)} aria-label="Novo cliente">
+        <button
+          type="button"
+          className="esm-icon-btn"
+          onClick={() => { setShowCreate((v) => !v); setCreateSuccess(false); setCreateError(null) }}
+          aria-label="Novo cliente"
+        >
           <Plus size={15} />
         </button>
       </div>
@@ -325,16 +329,17 @@ function ClientsTab() {
       {/* ── Create client form ── */}
       {showCreate && (
         <form className="esm-create-client-form" onSubmit={handleCreate}>
-          <p className="esm-form-label">Criar / atualizar cliente</p>
-          <p className="esm-note">O e-mail informado será vinculado a um usuário Auth. Se já existir, as informações serão atualizadas.</p>
+          <p className="esm-form-label">Criar novo cliente</p>
+          <p className="esm-note">Um convite será enviado ao e-mail informado para que o cliente defina sua senha.</p>
           {createError && <p className="esm-warn">{createError}</p>}
+          {createSuccess && <p className="esm-success">Convite enviado! O cliente receberá um e-mail para definir a senha.</p>}
           <input type="email" className="esm-input" placeholder="E-mail de login *" value={cfEmail} onChange={(e) => setCfEmail(e.target.value)} disabled={creating} required />
           <input className="esm-input" placeholder="Usuário (login) *" value={cfUsername} onChange={(e) => setCfUsername(e.target.value)} disabled={creating} required />
           <input className="esm-input" placeholder="Nome de exibição *" value={cfDisplay} onChange={(e) => setCfDisplay(e.target.value)} disabled={creating} required />
           <input className="esm-input" placeholder="Empresa (opcional)" value={cfCompany} onChange={(e) => setCfCompany(e.target.value)} disabled={creating} />
           <div className="esm-add-row">
-            <button type="submit" className="esm-add-btn" disabled={creating}>{creating ? 'Salvando…' : 'Salvar cliente'}</button>
-            <button type="button" className="esm-cancel-btn" onClick={() => setShowCreate(false)} disabled={creating}>Cancelar</button>
+            <button type="submit" className="esm-add-btn" disabled={creating}>{creating ? 'Enviando…' : 'Criar cliente'}</button>
+            <button type="button" className="esm-cancel-btn" onClick={() => { setShowCreate(false); setCreateSuccess(false); setCreateError(null) }} disabled={creating}>Cancelar</button>
           </div>
         </form>
       )}
